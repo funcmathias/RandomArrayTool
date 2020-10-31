@@ -1,0 +1,19 @@
+"AddonInfo"
+{
+	"name" "Random Array Tool"
+	"author_name" "func_Mathias"
+	"info" "
+{
+	"description": "This tool lets you spawn objects in a randomized array, or randomize already spawned objects in various ways.",
+	"type": "tool",
+	"tags": 
+	[
+		"random",
+		"array",
+		"tool",
+		"bodygroup",
+		"skin",
+		"grid"
+	]
+}"
+}
