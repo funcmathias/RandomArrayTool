@@ -8,30 +8,6 @@ local entToRandom = NULL
 local toolActive = false
 local stringSpacing = "   "
 
-local xArrayRotation = 0
-local yArrayRotation = 0
-local zArrayRotation = 0
-
-local xAmount = 1
-local xOffsetBase = 0
-local xOffsetRandom = 0
-local xRotationBase = 0
-local xRotationRandom = 0
-
-local yAmount = 1
-local yOffsetBase = 0
-local yOffsetRandom = 0
-local yRotationBase = 0
-local yRotationRandom = 0
-
-local zAmount = 1
-local zOffsetBase = 0
-local zOffsetRandom = 0
-local zRotationBase = 0
-local zRotationRandom = 0
-
-local transformTable = {} -- Base Position, Base Rotation
-
 local modelPathTable = {} -- Model sting paths
 
 TOOL.ClientConVar["spawnFrozen"] = "1"
@@ -44,6 +20,31 @@ TOOL.ClientConVar["previewBox"] = "1"
 TOOL.ClientConVar["sphereRadius"] = "0"
 
 TOOL.ClientConVar["mdlName"] = ""
+
+TOOL.ClientConVar["xArrayRotation"] = "0"
+TOOL.ClientConVar["yArrayRotation"] = "0"
+TOOL.ClientConVar["zArrayRotation"] = "0"
+
+-- X axis ConVars
+TOOL.ClientConVar["xAmount"] = "1"
+TOOL.ClientConVar["xOffsetBase"] = "0"
+TOOL.ClientConVar["xOffsetRandom"] = "0"
+TOOL.ClientConVar["xRotationBase"] = "90"
+TOOL.ClientConVar["xRotationRandom"] = "0"
+
+-- Y axis ConVars
+TOOL.ClientConVar["yAmount"] = "1"
+TOOL.ClientConVar["yOffsetBase"] = "0"
+TOOL.ClientConVar["yOffsetRandom"] = "0"
+TOOL.ClientConVar["yRotationBase"] = "0"
+TOOL.ClientConVar["yRotationRandom"] = "0"
+
+-- Z axis ConVars
+TOOL.ClientConVar["zAmount"] = "1"
+TOOL.ClientConVar["zOffsetBase"] = "0"
+TOOL.ClientConVar["zOffsetRandom"] = "0"
+TOOL.ClientConVar["zRotationBase"] = "0"
+TOOL.ClientConVar["zRotationRandom"] = "0"
 
 cleanup.Register( "rat_arrays" )
 
@@ -100,28 +101,48 @@ if CLIENT then
 end
 
 if (SERVER) then
-
 	util.AddNetworkString( "sendTables" ) -- Register the Network String
 
 	net.Receive( "sendTables", function( len, player ) -- When the server receives the clients Network information
 
 		local sid = player:SteamID()
 		modelPathTable[sid] = net.ReadTable()
-		transformTable[sid] = net.ReadTable()
 
-		print( "--- Model Table ---" )
-		PrintTable( modelPathTable ) -- Print the return value of the function, with our defined parameters.
-		print( "--- Model Table ---" )
+		print( "--- Model Path Table Start ---" )
+		PrintTable( modelPathTable )
+		print( "--- Model Path Table End ---" )
 
 	end)
 end
 
-local function CalcualteBaseTransforms() --Calculates the position for each spawnpoint, used for preview and spawning
-	transformTable = {}
+function TOOL:CreateTransformArray() -- Calculates the position array for both preview and spawning
+	local xArrayRotation = self:GetClientNumber( "xArrayRotation" )
+	local yArrayRotation = self:GetClientNumber( "yArrayRotation" )
+	local zArrayRotation = self:GetClientNumber( "zArrayRotation" )
+
+	local xAmount = self:GetClientNumber( "xAmount" )
+	local xOffsetBase = self:GetClientNumber( "xOffsetBase" )
+	local xOffsetRandom = self:GetClientNumber( "xOffsetRandom" )
+	local xRotationBase = self:GetClientNumber( "xRotationBase" )
+	local xRotationRandom = self:GetClientNumber( "xRotationRandom" )
+
+	local yAmount = self:GetClientNumber( "yAmount" )
+	local yOffsetBase = self:GetClientNumber( "yOffsetBase" )
+	local yOffsetRandom = self:GetClientNumber( "yOffsetRandom" )
+	local yRotationBase = self:GetClientNumber( "yRotationBase" )
+	local yRotationRandom = self:GetClientNumber( "yRotationRandom" )
+
+	local zAmount = self:GetClientNumber( "zAmount" )
+	local zOffsetBase = self:GetClientNumber( "zOffsetBase" )
+	local zOffsetRandom = self:GetClientNumber( "zOffsetRandom" )
+	local zRotationBase = self:GetClientNumber( "zRotationBase" )
+	local zRotationRandom = self:GetClientNumber( "zRotationRandom" )
+
+	local tempTable = {}
 	local i = 0
 
 	for x = 0, xAmount - 1 do
-		transformTable[i] = {
+		tempTable[i] = {
 			Vector( xOffsetBase * x, 0, 0 ), -- Position
 			Angle( xRotationBase, yRotationBase, zRotationBase ), -- Rotation
 		}
@@ -129,7 +150,7 @@ local function CalcualteBaseTransforms() --Calculates the position for each spaw
 
 		for y = 0, yAmount - 1 do
 			if (y != 0) then -- This for loop needs to skip the first cycle without affecting the next for loop
-				transformTable[i] = {
+				tempTable[i] = {
 					Vector( xOffsetBase * x, yOffsetBase * y, 0 ), -- Position
 					Angle( xRotationBase, yRotationBase, zRotationBase ), -- Rotation
 				}
@@ -137,7 +158,7 @@ local function CalcualteBaseTransforms() --Calculates the position for each spaw
 			end
 
 			for z = 1, zAmount - 1 do
-				transformTable[i] = {
+				tempTable[i] = {
 					Vector( xOffsetBase * x, yOffsetBase * y, zOffsetBase * z ), -- Position
 					Angle( xRotationBase, yRotationBase, zRotationBase ), -- Rotation
 				}
@@ -145,9 +166,9 @@ local function CalcualteBaseTransforms() --Calculates the position for each spaw
 			end
 		end
 	end
-end
 
-CalcualteBaseTransforms()
+	return tempTable
+end
 
 function TOOL:RandomizeEntityModel( entity )
 	if ( !IsValid( entity ) ) then return end
@@ -171,23 +192,26 @@ end
 
 
 function TOOL:SpawnPropTable( player, trace, sid )
-	if ( next( transformTable ) == nil || next( modelPathTable ) == nil ) then return end
+	if ( next( modelPathTable ) == nil ) then return end
+	local transformTable = self:CreateTransformArray();
+	if ( next( transformTable ) == nil ) then return end
+
 	undo.Create( "prop" )
 	undo.SetCustomUndoText( "#tool.rat.undo" )
 	undo.SetPlayer( player )
 
-	for i, v in pairs( transformTable[sid] ) do
+	for i, v in pairs( transformTable ) do
 
 		-- if trace.HitNonWorld then return end -- If the player is not looking at the ground then return
 
-		local rotatedRelPos = Vector() + transformTable[sid][i][1]
+		local rotatedRelPos = Vector() + transformTable[i][1]
 		rotatedRelPos:Rotate( trace.HitNormal:Angle() )
 
 		local entity = ents.Create( "prop_physics" )
 		print( modelPathTable[sid][math.random( #modelPathTable[sid] )] .. " is le path for de modul" )
 		entity:SetModel( modelPathTable[sid][math.random( #modelPathTable[sid] )] ) -------------
 		entity:SetPos( trace.HitPos + rotatedRelPos )
-		entity:SetAngles( transformTable[sid][i][2] + trace.HitNormal:Angle() )
+		entity:SetAngles( transformTable[i][2] + trace.HitNormal:Angle() )
 		entity:Spawn()
 		entToRandom = entity
 
@@ -216,12 +240,8 @@ function TOOL:LeftClick( trace )
 	end
 
 	if ( SERVER ) then
-		if ( next( transformTable ) == nil || next( modelPathTable ) == nil ) then return end
 		local player = self:GetOwner()
 		local sid = player:SteamID()
-		print( #transformTable[sid] .. " is a number" )
-		print( #modelPathTable[sid] .. " is another number" )
-		PrintTable( transformTable[sid] )
 
 		self:SpawnPropTable( player, trace, sid ) --Spawns the props
 	end
@@ -237,7 +257,6 @@ end
 
 function TOOL:Reload( trace )
 	if ( SERVER ) then
-		-- self.Ready = 0
 		local foundEnts = ents.FindInSphere( trace.HitPos, self:GetClientNumber( "sphereRadius" ) )
 		for i, f in pairs( foundEnts ) do
 			if ( IsValid( foundEnts[i] ) ) then
@@ -251,9 +270,9 @@ end
 
 
 function TOOL:CheckList()
-	print( "--- Model Table ---" )
+	print( "--- Model Path Table Start ---" )
 	PrintTable( modelPathTable )
-	print( "--- Model Table ---" )
+	print( "--- Model Path Table End ---" )
 end
 
 local function RemoveFirstMatchInTable( tbl, val )
@@ -268,7 +287,6 @@ end
 local function updateServerTables()
 	net.Start( "sendTables" )
 	net.WriteTable( modelPathTable )
-	net.WriteTable( transformTable )
 	net.SendToServer()
 end
 
@@ -311,8 +329,6 @@ local function AddSpawnIcon( mdlPanel, mdlPath ) -------------------------------
 
 		table.insert( modelPathTable, modelList[i] )
 	end
-
-	updateServerTables()
 end
 
 local function RenderAxis( pos, ang )
@@ -335,23 +351,26 @@ end
 
 hook.Add( "PostDrawTranslucentRenderables", "spawnPreviewPositionRender", function( ) --Draws an axis and wireframe box per position
 	if ( toolActive && LocalPlayer():GetTool() ) then
-		local trace = LocalPlayer():GetEyeTrace()
+		local previewAxis = tobool( LocalPlayer():GetTool():GetClientNumber( "previewAxis" ) )
+		local previewBox = tobool( LocalPlayer():GetTool():GetClientNumber( "previewBox" ) )
+		if ( !previewAxis && !previewBox ) then return end
 
-		local prevAxis = LocalPlayer():GetTool():GetClientNumber( "previewAxis" )
-		local prevBox = LocalPlayer():GetTool():GetClientNumber( "previewBox" )
+		local transformTable = LocalPlayer():GetTool():CreateTransformArray()
+		if ( next( transformTable ) == nil ) then return end
+		local trace = LocalPlayer():GetEyeTrace()
 
 		for i = 0, #transformTable do
 			local rotatedRelPos = Vector() + transformTable[i][1]
-			rotatedRelPos:Rotate( trace.HitNormal:Angle() + Angle( xArrayRotation, yArrayRotation, zArrayRotation ) )
+			rotatedRelPos:Rotate( trace.HitNormal:Angle() )
 
 			-- local rotatedRelRot = Angle() + transformTable[i][2]
 			-- rotatedRelRot:Rotate( trace.HitNormal:Angle() )
 
-			if ( tobool( prevAxis ) ) then
+			if ( previewAxis ) then
 				RenderAxis( trace.HitPos + rotatedRelPos, trace.HitNormal:Angle() )
 			end
 
-			if ( tobool( prevBox ) ) then
+			if ( previewBox ) then
 				render.DrawWireframeBox( trace.HitPos + rotatedRelPos, trace.HitNormal:Angle(), Vector( 0.5, 2.5, 2.5 ), Vector( -0.5, -2.5, -2.5 ), Color( 0, 255, 255, 255 ), false )
 			end
 		end
@@ -397,13 +416,14 @@ local function MakeText( panel, color, str )
 	panel:AddItem( Text )
 end
 
-local function MakeAxisSlider( panel, color, str, min, max, valueToChange )
+local function MakeAxisSlider( panel, color, str, min, max, conVar )
 	local DermaNumSlider = vgui.Create( "DNumSlider" )
 	DermaNumSlider:SetText( stringSpacing .. language.GetPhrase( str ) )
 	DermaNumSlider:SetMinMax( min, max )
 	DermaNumSlider:SetTall( 15 )
 	DermaNumSlider:SetDecimals( 0 )
 	DermaNumSlider:SetDark( true )
+	DermaNumSlider:SetConVar( conVar )
 	DermaNumSlider.Paint = function()
 		surface.SetDrawColor( color )
 		surface.DrawRect( 0, 3, 4, 10 )
@@ -411,22 +431,25 @@ local function MakeAxisSlider( panel, color, str, min, max, valueToChange )
 	panel:AddItem( DermaNumSlider )
 
 	function DermaNumSlider:OnValueChanged( val )
-		-- valueToChange = val
-		print( val )
-		CalcualteBaseTransforms()
-		updateServerTables()
-		-- return val
+		-- print( val )
 	end
 
 	return DermaNumSlider
 end
 
 local function ChangeAndColorModelCount( panel )
-	panel:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.numOfObjects" ) .. #transformTable + 1 )
+	if ( GetConVar( "rat_xAmount" ) == nil || GetConVar( "rat_yAmount" ) == nil || GetConVar( "rat_zAmount" ) == nil ) then return end
+	local xAmount = GetConVar( "rat_xAmount" ):GetInt()
+	local yAmount = GetConVar( "rat_yAmount" ):GetInt()
+	local zAmount = GetConVar( "rat_zAmount" ):GetInt()
 
-	if ( #transformTable + 1 < 750 ) then
+	local totalAmount = xAmount * yAmount * zAmount
+
+	panel:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.numOfObjects" ) .. totalAmount )
+
+	if ( totalAmount < 750 ) then
 		panel:SetColor( Color( 250, 250, 250 ) ) -- White
-	elseif ( #transformTable + 1 < 1500 ) then
+	elseif ( totalAmount < 1500 ) then
 		panel:SetColor( Color( 255, 200, 90 ) ) -- Orange
 	else
 		panel:SetColor( Color( 255, 133, 127 ) ) -- Red
@@ -439,12 +462,19 @@ function TOOL:UpdateControlPanel( index )
 	if ( !panel ) then MsgN( "No panel found for Random Array Tool!" ) return end
 
 	panel:ClearControls()
+	cvars.RemoveChangeCallback("rat_xAmount", "rat_xAmount_callback")
+	cvars.RemoveChangeCallback("rat_yAmount", "rat_yAmount_callback")
+	cvars.RemoveChangeCallback("rat_zAmount", "rat_zAmount_callback")
 	self.BuildCPanel( panel )
-	CalcualteBaseTransforms()
 	updateServerTables()
 end
 
 function TOOL.BuildCPanel( cpanel )
+	-- Reset ConVar values for ui elements that can't grap it when being built (DNumberWang)
+	-- GetConVar( "rat_xAmount" ):Revert()
+	-- GetConVar( "rat_yAmount" ):Revert()
+	-- GetConVar( "rat_zAmount" ):Revert()
+
 	MakeText( cpanel, Color( 50, 50, 50 ), "#tool.rat.desc" )
 
 	cpanel:CheckBox( "#tool.rat.spawnFrozen", "rat_spawnFrozen" )
@@ -541,8 +571,9 @@ function TOOL.BuildCPanel( cpanel )
 				if ( panels[i]:GetName() != "SpawnIcon" ) then continue end
 				local currentMdlPath = panels[i]:GetModelName()
 				AddSpawnIcon( MdlView, currentMdlPath )
-				updateServerTables()
 			end
+
+			updateServerTables()
 
 			if ( panels[1]:GetName() != "SpawnIcon" ) then return end
 			print( "You just dropped " .. panels[1]:GetModelName() .. " on me." )
@@ -579,7 +610,7 @@ function TOOL.BuildCPanel( cpanel )
 
 
 
-	--[[----------------------------------------------------------------]] --Spawnpoint settings
+	--[[----------------------------------------------------------------]] --Array visualization options
 	cpanel:CheckBox( "#tool.rat.previewPosition", "rat_previewAxis" )
 	cpanel:CheckBox( "#tool.rat.previewOffset", "rat_previewBox" )
 
@@ -595,6 +626,21 @@ function TOOL.BuildCPanel( cpanel )
 		draw.RoundedBoxEx( 4, 0, 0, 200, 19, Color( 127, 127, 127 ), true, true, false, false )
 	end
 	cpanel:AddItem( NumberOfModelsText )
+
+	ChangeAndColorModelCount( NumberOfModelsText ) -- Make sure the text shows the correct count
+
+	-- Only reliable way I found to update this value was a bunch of callbacks
+	-- If using GetConVar within DNumberWang:OnValueChanged it would return the previous value
+	cvars.AddChangeCallback("rat_xAmount", function( convarName, valueOld, valueNew )
+		ChangeAndColorModelCount( NumberOfModelsText )
+	end, "rat_xAmount_callback")
+	cvars.AddChangeCallback("rat_yAmount", function( convarName, valueOld, valueNew )
+		ChangeAndColorModelCount( NumberOfModelsText )
+	end, "rat_yAmount_callback")
+	cvars.AddChangeCallback("rat_zAmount", function( convarName, valueOld, valueNew )
+		ChangeAndColorModelCount( NumberOfModelsText )
+	end, "rat_zAmount_callback")
+
 
 	local control = vgui.Create( "DSizeToContents" ) ----
 	control:Dock( TOP )
@@ -613,14 +659,9 @@ function TOOL.BuildCPanel( cpanel )
 	numbox:SetPos( 10, 10 )
 	numbox:SetValue( 1 )
 	numbox:SetMinMax( 1, 999 )
-	-- numbox:SetConVar( "rat_randomSkip" )
-	-- numbox:Dock( LEFT )
-
-	function numbox:OnValueChanged( val )
-		xAmount = val
-		CalcualteBaseTransforms()
-		ChangeAndColorModelCount( NumberOfModelsText )
-		updateServerTables()
+	numbox:SetConVar( "rat_xAmount" )
+	if ( GetConVar( "rat_xAmount" ) != nil ) then -- Dumb hack to make DNumberWang read the value when first built, don't know why only they don't
+		numbox:SetValue( GetConVar( "rat_xAmount" ):GetInt() )
 	end
 
 	local label = vgui.Create( "DLabel", control )
@@ -636,14 +677,9 @@ function TOOL.BuildCPanel( cpanel )
 	numbox:SetPos( 10, 35 )
 	numbox:SetValue( 1 )
 	numbox:SetMinMax( 1, 999 )
-	-- numbox:SetConVar( "rat_randomSkip" )
-	-- numbox:Dock( LEFT )
-
-	function numbox:OnValueChanged( val )
-		yAmount = val
-		CalcualteBaseTransforms()
-		ChangeAndColorModelCount( NumberOfModelsText )
-		updateServerTables()
+	numbox:SetConVar( "rat_yAmount" )
+	if ( GetConVar( "rat_yAmount" ) != nil ) then -- Dumb hack to make DNumberWang read the value when first built, don't know why only they don't
+		numbox:SetValue( GetConVar( "rat_yAmount" ):GetInt() )
 	end
 
 	local label = vgui.Create( "DLabel", control )
@@ -659,14 +695,9 @@ function TOOL.BuildCPanel( cpanel )
 	numbox:SetPos( 10, 60 )
 	numbox:SetValue( 1 )
 	numbox:SetMinMax( 1, 999 )
-	-- numbox:SetConVar( "rat_randomSkip" )
-	-- numbox:Dock( LEFT )
-
-	function numbox:OnValueChanged( val )
-		zAmount = val
-		CalcualteBaseTransforms()
-		ChangeAndColorModelCount( NumberOfModelsText )
-		updateServerTables()
+	numbox:SetConVar( "rat_zAmount" )
+	if ( GetConVar( "rat_zAmount" ) != nil ) then -- Dumb hack to make DNumberWang read the value when first built, don't know why only they don't
+		numbox:SetValue( GetConVar( "rat_zAmount" ):GetInt() )
 	end
 
 	local label = vgui.Create( "DLabel", control )
@@ -694,47 +725,17 @@ function TOOL.BuildCPanel( cpanel )
 
 	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.spacing" )
 
-	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", -1000, 1000, xOffsetBase )
-	function Slider:OnValueChanged( val )
-		xOffsetBase = val
-		CalcualteBaseTransforms()
-		updateServerTables()
-	end
-	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", -1000, 1000, yOffsetBase )
-	function Slider:OnValueChanged( val )
-		yOffsetBase = val
-		CalcualteBaseTransforms()
-		updateServerTables()
-	end
-	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", -1000, 1000, zOffsetBase )
-	function Slider:OnValueChanged( val )
-		zOffsetBase = val
-		CalcualteBaseTransforms()
-		updateServerTables()
-	end
+	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", -1000, 1000, "rat_xOffsetBase" )
+	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", -1000, 1000, "rat_yOffsetBase" )
+	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", -1000, 1000, "rat_zOffsetBase" )
 
 
 	MakeText( DermaList, Color( 50, 50, 50 ), "" )
 	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.rotation" )
 
-	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", -180, 180, xRotationBase )
-	function Slider:OnValueChanged( val )
-		xRotationBase = val
-		CalcualteBaseTransforms()
-		updateServerTables()
-	end
-	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", -180, 180, yRotationBase )
-	function Slider:OnValueChanged( val )
-		yRotationBase = val
-		CalcualteBaseTransforms()
-		updateServerTables()
-	end
-	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", -180, 180, zRotationBase )
-	function Slider:OnValueChanged( val )
-		zRotationBase = val
-		CalcualteBaseTransforms()
-		updateServerTables()
-	end
+	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", -180, 180, "rat_xRotationBase" )
+	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", -180, 180, "rat_yRotationBase" )
+	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", -180, 180, "rat_zRotationBase" )
 
 
 	--[[----------------------------------------------------------------]] --RANDOM SPAWN OFFSETS
@@ -755,47 +756,17 @@ function TOOL.BuildCPanel( cpanel )
 
 	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.randomSpacing" )
 
-	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", 0, 1000, xArrayRotation )
-	function Slider:OnValueChanged( val )
-		xOffsetBase = val
-		CalcualteBaseTransforms()
-		updateServerTables()
-	end
-	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", 0, 1000, yArrayRotation )
-	function Slider:OnValueChanged( val )
-		xOffsetBase = val
-		CalcualteBaseTransforms()
-		updateServerTables()
-	end
-	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", 0, 1000, zArrayRotation )
-	function Slider:OnValueChanged( val )
-		xOffsetBase = val
-		CalcualteBaseTransforms()
-		updateServerTables()
-	end
+	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", 0, 1000, "rat_xOffsetRandom" )
+	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", 0, 1000, "rat_yOffsetRandom" )
+	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", 0, 1000, "rat_zOffsetRandom" )
 
 
 	MakeText( DermaList, Color( 50, 50, 50 ), "" )
 	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.randomRotation" )
 
-	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", -180, 180, xRotationBase )
-	function Slider:OnValueChanged( val )
-		xOffsetBase = val
-		CalcualteBaseTransforms()
-		updateServerTables()
-	end
-	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", -180, 180, yRotationBase )
-	function Slider:OnValueChanged( val )
-		xOffsetBase = val
-		CalcualteBaseTransforms()
-		updateServerTables()
-	end
-	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", -180, 180, zRotationBase )
-	function Slider:OnValueChanged( val )
-		xOffsetBase = val
-		CalcualteBaseTransforms()
-		updateServerTables()
-	end
+	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", -180, 180, "rat_xRotationRandom" )
+	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", -180, 180, "rat_yRotationRandom" )
+	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", -180, 180, "rat_zRotationRandom" )
 
 
 	--[[----------------------------------------------------------------]] --DEBUG
