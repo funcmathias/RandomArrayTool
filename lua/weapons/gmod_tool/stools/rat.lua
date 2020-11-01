@@ -97,6 +97,8 @@ if CLIENT then
 	language.Add( "tool.rat.zAxis", "Z axis" )
 
 	language.Add( "tool.rat.undo", "Undone random array" )
+	language.Add( "Cleanup_rat_arrays", "Random Arrays" )
+	language.Add( "Cleaned_rat_arrays", "Cleaned up all Random Arrays" )
 
 end
 
@@ -223,8 +225,6 @@ function TOOL:SpawnPropTable( player, trace, sid )
 			phys:EnableMotion( frozen ) --Freeze prop
 		end
 
-		entity:EmitSound( "npc/scanner/combat_scan5.wav" )
-
 		undo.AddEntity( entity )
 		self:GetOwner():AddCleanup( "rat_arrays", entity )
 	end
@@ -349,8 +349,8 @@ local function RenderAxis( pos, ang )
 end
 
 
-hook.Add( "PostDrawTranslucentRenderables", "spawnPreviewPositionRender", function( ) --Draws an axis and wireframe box per position
-	if ( toolActive && LocalPlayer():GetTool() ) then
+hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( bDrawingDepth, bDrawingSkybox ) --Draws an axis and/or wireframe box per position
+	if ( toolActive && LocalPlayer():GetTool() && !bDrawingSkybox ) then
 		local previewAxis = tobool( LocalPlayer():GetTool():GetClientNumber( "previewAxis" ) )
 		local previewBox = tobool( LocalPlayer():GetTool():GetClientNumber( "previewBox" ) )
 		if ( !previewAxis && !previewBox ) then return end
