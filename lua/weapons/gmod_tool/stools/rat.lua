@@ -4,7 +4,6 @@ TOOL.Name = "#tool.rat.name"
 TOOL.Description = "#tool.rat.desc"
 TOOL.Category = "func_Mathias"
 
-local entToRandom = NULL
 local toolActive = false
 local stringSpacing = "   "
 
@@ -180,11 +179,11 @@ function TOOL:RandomizeEntityModel( entity )
 	-- print( "entity skin count " .. entity:SkinCount() )
 	-- print( "entity number of bodygroup" .. entity:GetNumBodyGroups() )
 
-	if ( tobool( self:GetClientNumber( "randomSkin" ) ) ) then
+	if ( tobool( self:GetClientNumber( "randomSkin" ) ) && entity:SkinCount() != nil ) then
 		entity:SetSkin( math.random( 0, entity:SkinCount() - 1 ) )
 	end
 
-	if ( tobool( self:GetClientNumber( "randomBG" ) ) ) then
+	if ( tobool( self:GetClientNumber( "randomBG" ) ) && entity:GetNumBodyGroups() != nil ) then
 		for i = 0, entity:GetNumBodyGroups() do
 			if ( i <= self:GetClientNumber( "randomSkip" ) ) then continue end
 			entity:SetBodygroup( i, math.random( 0, entity:GetBodygroupCount( i ) - 1 ) )
@@ -195,27 +194,27 @@ end
 
 function TOOL:SpawnPropTable( player, trace, sid )
 	if ( next( modelPathTable ) == nil ) then return end
+	if ( next( modelPathTable[sid] ) == nil ) then return end
 	local transformTable = self:CreateTransformArray();
 	if ( next( transformTable ) == nil ) then return end
 
-	undo.Create( "prop" )
+	undo.Create( "rat_array_object" )
 	undo.SetCustomUndoText( "#tool.rat.undo" )
 	undo.SetPlayer( player )
 
-	for i, v in pairs( transformTable ) do
+	for i, transform in pairs( transformTable ) do
 
 		-- if trace.HitNonWorld then return end -- If the player is not looking at the ground then return
 
-		local rotatedRelPos = Vector() + transformTable[i][1]
+		local rotatedRelPos = Vector() + transform[1]
 		rotatedRelPos:Rotate( trace.HitNormal:Angle() )
 
 		local entity = ents.Create( "prop_physics" )
 		print( modelPathTable[sid][math.random( #modelPathTable[sid] )] .. " is le path for de modul" )
 		entity:SetModel( modelPathTable[sid][math.random( #modelPathTable[sid] )] ) -------------
 		entity:SetPos( trace.HitPos + rotatedRelPos )
-		entity:SetAngles( transformTable[i][2] + trace.HitNormal:Angle() )
+		entity:SetAngles( transform[2] + trace.HitNormal:Angle() )
 		entity:Spawn()
-		entToRandom = entity
 
 		self:RandomizeEntityModel( entity )
 
@@ -258,9 +257,9 @@ end
 function TOOL:Reload( trace )
 	if ( SERVER ) then
 		local foundEnts = ents.FindInSphere( trace.HitPos, self:GetClientNumber( "sphereRadius" ) )
-		for i, f in pairs( foundEnts ) do
-			if ( IsValid( foundEnts[i] ) ) then
-				self:RandomizeEntityModel( foundEnts[i] )
+		for i, entity in pairs( foundEnts ) do
+			if ( IsValid( entity ) ) then
+				self:RandomizeEntityModel( entity )
 			end
 		end
 	end
@@ -275,10 +274,10 @@ function TOOL:CheckList()
 	print( "--- Model Path Table End ---" )
 end
 
-local function RemoveFirstMatchInTable( tbl, val )
-	for i, v in ipairs( tbl ) do
-		if v == val then
-			table.remove( tbl, i )
+local function RemoveFirstMatchInTable( inputTable, inputString )
+	for i, str in ipairs( inputTable ) do
+		if str == inputString then
+			table.remove( inputTable, i )
 			return
 		end
 	end
@@ -290,44 +289,43 @@ local function updateServerTables()
 	net.SendToServer()
 end
 
-local function CheckModelPath( dir )
-	if string.find( dir, "%.mdl" ) then
+local function CheckModelPath( inputDirectory )
+	if string.find( inputDirectory, "%.mdl" ) then
 		print ( "The word .mdl was found." )
-		local tampTable = { dir }
+		local tampTable = { inputDirectory }
 		return tampTable
 	else
-		local tempMdlTable = {} -- models/ocdev/cars/truck           test string
-		print( "==[LOADING " .. dir .. "]===========================================" )
-		local list = file.Find( dir .. "/*.mdl", "GAME" ) -- Change *.lua to what file format you want to load for example .mdl
-		PrintTable( list )
-			for i, f in pairs( list ) do
-				local directory = dir .. "/" .. f
-				-- resource.AddFile(directory)
-				table.insert( tempMdlTable, directory )
-				print( "    >Loaded " .. directory )
-			end
-			print( "    >Loaded the directory " .. dir )
+		local tempMdlTable = {}
+		print( "==[LOADING " .. inputDirectory .. "]===========================================" )
+		local fileList = file.Find( inputDirectory .. "/*.mdl", "GAME" )
+		PrintTable( fileList )
+		for i, fileName in pairs( fileList ) do
+			local directory = inputDirectory .. "/" .. fileName
+			-- resource.AddFile(directory)
+			table.insert( tempMdlTable, directory )
+			print( "    >Loaded " .. directory )
+		end
+		print( "    >Loaded the directory " .. inputDirectory )
+
 		return tempMdlTable
 	end
 end
 
-local function AddSpawnIcon( mdlPanel, mdlPath ) --------------------------------------------------------------------
-	local modelList = CheckModelPath( mdlPath )
-
-	for i, v in ipairs( modelList ) do
-		local ListItem = mdlPanel:Add( "SpawnIcon" )
+local function AddSpawnIcon( inputListPanel, inputModelPath ) --------------------------------------------------------------------
+	for i, path in ipairs( CheckModelPath( inputModelPath ) ) do
+		local ListItem = inputListPanel:Add( "SpawnIcon" )
 		ListItem:SetSize( 64, 64 )
-		print( "Model path for icon is " .. modelList[i] )
-		ListItem:SetModel( modelList[i] )
+		print( "Model path for icon is " .. path )
+		ListItem:SetModel( path )
 
 		ListItem.DoRightClick = function()
-			RemoveFirstMatchInTable( modelPathTable, modelList[i] )
+			RemoveFirstMatchInTable( modelPathTable, path )
 			updateServerTables()
 			print( "Going to remove myself" )
 			ListItem:Remove()
 		end
 
-		table.insert( modelPathTable, modelList[i] )
+		table.insert( modelPathTable, path )
 	end
 end
 
@@ -487,7 +485,7 @@ function TOOL.BuildCPanel( cpanel )
 	local control = vgui.Create( "DSizeToContents" )
 	control:Dock( TOP )
 	control:DockPadding( 5, 5, 5, 0 )
-	cpanel:AddItem(control)
+	cpanel:AddItem( control )
 
 	local textbox = vgui.Create( "DNumberWang", control )
 	textbox:SetSize( 40, 20 )
@@ -504,7 +502,7 @@ function TOOL.BuildCPanel( cpanel )
 	local control = vgui.Create( "DSizeToContents" )
 	control:Dock( TOP )
 	control:DockPadding( 5, 5, 5, 0 )
-	cpanel:AddItem(control)
+	cpanel:AddItem( control )
 
 	local textbox = vgui.Create( "DNumberWang", control )
 	textbox:SetSize( 40, 20 )
@@ -561,22 +559,20 @@ function TOOL.BuildCPanel( cpanel )
 	MdlView:SetSpaceX( 1 )
 	MdlView:SetBorder( 2 ) -- Works but not on the bottom....
 
-	Scroll:Receiver( "SandboxContentPanel", function(self, panels, dropped)
+	Scroll:Receiver( "SandboxContentPanel", function(self, inputPanels, dropped)
 		if ( dropped ) then
 			print( "Trying to drop" )
 
-			-- AddSpawnIcon( MdlView, panels[1]:GetModelName() )
-
-			for i, v in pairs( panels ) do
-				if ( panels[i]:GetName() != "SpawnIcon" ) then continue end
-				local currentMdlPath = panels[i]:GetModelName()
+			for i, panel in pairs( inputPanels ) do
+				if ( panel:GetName() != "SpawnIcon" ) then continue end
+				local currentMdlPath = panel:GetModelName()
 				AddSpawnIcon( MdlView, currentMdlPath )
 			end
 
 			updateServerTables()
 
-			if ( panels[1]:GetName() != "SpawnIcon" ) then return end
-			print( "You just dropped " .. panels[1]:GetModelName() .. " on me." )
+			if ( inputPanels[1]:GetName() != "SpawnIcon" ) then return end
+			print( "You just dropped " .. inputPanels[1]:GetModelName() .. " on me." )
 		end
 	end)
 
@@ -586,6 +582,7 @@ function TOOL.BuildCPanel( cpanel )
 	AddButton:SetTooltip( "#tool.rat.mdlAddButton" )
 	AddButton.DoClick = function()
 		AddSpawnIcon( MdlView, GetConVar( "rat_mdlName" ):GetString() )
+		updateServerTables()
 	end
 
 	-- Some weird positioning here for everything to be able to reference what it needs to but still be in the right order in the ui
@@ -599,9 +596,8 @@ function TOOL.BuildCPanel( cpanel )
 	ClearButton:DockMargin( 0, -8, 0, 0 )
 	-- ClearButton:SetTooltip( "#tool.rat.mdlAddButton" )
 	ClearButton.DoClick = function()
-		local MdlIcons = MdlView:GetChildren()
-		for i, v in pairs( MdlIcons ) do
-			MdlIcons[i]:Remove()
+		for i, Icon in pairs( MdlView:GetChildren() ) do
+			Icon:Remove()
 		end
 		modelPathTable = {}
 		updateServerTables()
