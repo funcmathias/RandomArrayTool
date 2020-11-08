@@ -213,7 +213,9 @@ end
 -- Randomizes input entity in multiple ways
 function TOOL:RandomizeEntityModel( entity )
 	if ( !IsValid( entity ) ) then return end
-	if ( entity:GetClass() == "prop_effect" ) then entity = entity.AttachedEntity end -- Needed to change prop_effects when tracing directly
+	local entityClass = entity:GetClass()
+	if ( entityClass == "player" ) then return end
+	if ( entityClass == "prop_effect" ) then entity = entity.AttachedEntity end -- Needed to change prop_effects when tracing directly
 
 	-- print( "entity class " .. entity:GetClass() )
 	-- print( "entity skin count " .. entity:SkinCount() )
@@ -258,9 +260,14 @@ function TOOL:SpawnPropTable( player, trace, sid )
 		-- Check spawn chance
 		if ( spawnChance < math.random( 1, 100 ) ) then continue end
 
-		local entity = ents.Create( "prop_physics" )
-		print( modelPathTable[sid][math.random( #modelPathTable[sid] )] .. " is le path for de modul" )
-		entity:SetModel( modelPathTable[sid][math.random( #modelPathTable[sid] )] ) -------------
+		local modelPath = modelPathTable[sid][math.random( #modelPathTable[sid] )]
+		local entityType = "prop_effect"
+		if ( util.IsValidProp( modelPath ) ) then entityType = "prop_physics" end
+		if ( util.IsValidRagdoll( modelPath ) ) then entityType = "prop_ragdoll" end
+
+		local entity = ents.Create( entityType )
+		print( modelPath .. " is le path for de modul" )
+		entity:SetModel( modelPath ) -------------
 		entity:SetPos( trace.HitPos + transform )
 		entity:SetAngles( elementAngle )
 		entity:Spawn()
@@ -313,9 +320,7 @@ function TOOL:Reload( trace )
 		local foundEnts = ents.FindInSphere( trace.HitPos, self:GetClientNumber( "sphereRadius" ) )
 		-- Randomize entities within sphere volume
 		for i, entity in pairs( foundEnts ) do
-			if ( IsValid( entity ) ) then
-				self:RandomizeEntityModel( entity )
-			end
+			self:RandomizeEntityModel( entity )
 		end
 	end
 	return true
