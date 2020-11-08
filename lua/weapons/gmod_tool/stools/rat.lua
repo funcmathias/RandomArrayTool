@@ -10,9 +10,12 @@ local stringSpacing = "   "
 local modelPathTable = {} -- Model sting paths
 
 TOOL.ClientConVar["spawnFrozen"] = "1"
+TOOL.ClientConVar["randomColor"] = "0"
 TOOL.ClientConVar["randomSkin"] = "1"
 TOOL.ClientConVar["randomBG"] = "1"
 TOOL.ClientConVar["randomSkip"] = "0"
+
+TOOL.ClientConVar["spawnChance"] = "100"
 
 TOOL.ClientConVar["previewAxis"] = "1"
 TOOL.ClientConVar["previewBox"] = "1"
@@ -66,10 +69,13 @@ if CLIENT then
 	language.Add( "tool.rat.desc", "This tool lets you spawn objects in a randomized array, or randomize already spawned objects in various ways." )
 
 	language.Add( "tool.rat.spawnFrozen", "Spawn frozen" )
+	language.Add( "tool.rat.randomColor", "Randomize color" )
 	language.Add( "tool.rat.randomSkin", "Randomize skins" )
 	language.Add( "tool.rat.randomBG", "Randomize bodygroups" )
 	language.Add( "tool.rat.randomSkip", "Skip this many bodygroups" )
 	language.Add( "tool.rat.sphereRadius", "Sphere radius" )
+
+	language.Add( "tool.rat.spawnChance", "Spawn chance (0 - 100)" )
 
 	language.Add( "tool.rat.listHelpTitle", "Object list help - Click for info" )
 	language.Add( "tool.rat.listHelp1", "With the panel below you can keep track of the models you want to randomly spawn." )
@@ -214,6 +220,10 @@ function TOOL:RandomizeEntityModel( entity )
 			entity:SetBodygroup( i, math.random( 0, entity:GetBodygroupCount( i ) - 1 ) )
 		end
 	end
+
+	if ( tobool( self:GetClientNumber( "randomColor" ) ) ) then
+		entity:SetColor( ColorRand() )
+	end
 end
 
 
@@ -225,12 +235,14 @@ function TOOL:SpawnPropTable( player, trace, sid )
 
 	local elementAngle = self:ModifyTransformArray( trace, transformTable )
 
+	local spawnChance = self:GetClientNumber( "spawnChance" )
+
 	undo.Create( "rat_array_object" )
 	undo.SetCustomUndoText( "#tool.rat.undo" )
 	undo.SetPlayer( player )
 
 	for i, transform in pairs( transformTable ) do
-
+		if ( spawnChance < math.random( 1, 100 ) ) then continue end
 		-- if trace.HitNonWorld then return end -- If the player is not looking at the ground then return
 
 		local entity = ents.Create( "prop_physics" )
@@ -511,6 +523,7 @@ function TOOL.BuildCPanel( cpanel )
 	MakeText( cpanel, Color( 50, 50, 50 ), "#tool.rat.desc" )
 
 	cpanel:CheckBox( "#tool.rat.spawnFrozen", "rat_spawnFrozen" )
+	cpanel:CheckBox( "#tool.rat.randomColor", "rat_randomColor" )
 	cpanel:CheckBox( "#tool.rat.randomSkin", "rat_randomSkin" )
 	cpanel:CheckBox( "#tool.rat.randomBG", "rat_randomBG" )
 
@@ -547,6 +560,28 @@ function TOOL.BuildCPanel( cpanel )
 
 	local label = vgui.Create( "DLabel", control )
 	label:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.sphereRadius" ) )
+	label:SetDark( true )
+	label:Dock( TOP )
+
+	cpanel:ControlHelp( "" )
+
+	local control = vgui.Create( "DSizeToContents" )
+	control:Dock( TOP )
+	control:DockPadding( 5, 5, 5, 0 )
+	cpanel:AddItem( control )
+
+	local textbox = vgui.Create( "DNumberWang", control )
+	textbox:SetSize( 40, 20 )
+	textbox:SetMax( 100 )
+	textbox:SetDecimals( 2 )
+	textbox:SetConVar( "rat_spawnChance" )
+	if ( GetConVar( "rat_spawnChance" ) != nil ) then -- Dumb hack to make DNumberWang read the value when first built, don't know why only they don't
+		textbox:SetValue( GetConVar( "rat_spawnChance" ):GetFloat() )
+	end
+	textbox:Dock( LEFT )
+
+	local label = vgui.Create( "DLabel", control )
+	label:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.spawnChance" ) )
 	label:SetDark( true )
 	label:Dock( TOP )
 
