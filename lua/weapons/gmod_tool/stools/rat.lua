@@ -20,6 +20,10 @@ TOOL.ClientConVar["sphereRadius"] = "0"
 
 TOOL.ClientConVar["mdlName"] = ""
 
+TOOL.ClientConVar["xArrayOffset"] = "0"
+TOOL.ClientConVar["yArrayOffset"] = "0"
+TOOL.ClientConVar["zArrayOffset"] = "0"
+
 TOOL.ClientConVar["xArrayRotation"] = "0"
 TOOL.ClientConVar["yArrayRotation"] = "0"
 TOOL.ClientConVar["zArrayRotation"] = "0"
@@ -28,7 +32,7 @@ TOOL.ClientConVar["zArrayRotation"] = "0"
 TOOL.ClientConVar["xAmount"] = "1"
 TOOL.ClientConVar["xOffsetBase"] = "0"
 TOOL.ClientConVar["xOffsetRandom"] = "0"
-TOOL.ClientConVar["xRotationBase"] = "90"
+TOOL.ClientConVar["xRotationBase"] = "0"
 TOOL.ClientConVar["xRotationRandom"] = "0"
 
 -- Y axis ConVars
@@ -91,6 +95,9 @@ if CLIENT then
 	language.Add( "tool.rat.randomSpawnOffsets", "Random spawn offsets" )
 	language.Add( "tool.rat.randomSpacing", "Random spacing" )
 	language.Add( "tool.rat.randomRotation", "Random rotation" )
+	language.Add( "tool.rat.arrayOffsets", "Array offsets" )
+	language.Add( "tool.rat.arrayOffset", "Offset" )
+	language.Add( "tool.rat.arrayRotation", "Rotation" )
 	language.Add( "tool.rat.xAxis", "X axis" )
 	language.Add( "tool.rat.yAxis", "Y axis" )
 	language.Add( "tool.rat.zAxis", "Z axis" )
@@ -116,59 +123,77 @@ if (SERVER) then
 	end)
 end
 
-function TOOL:CreateTransformArray() -- Calculates the position array for both preview and spawning
-	local xArrayRotation = self:GetClientNumber( "xArrayRotation" )
-	local yArrayRotation = self:GetClientNumber( "yArrayRotation" )
-	local zArrayRotation = self:GetClientNumber( "zArrayRotation" )
-
+function TOOL:CreateLocalTransformArray() -- Calculates the position array for both preview and spawning
 	local xAmount = self:GetClientNumber( "xAmount" )
-	local xOffsetBase = self:GetClientNumber( "xOffsetBase" )
-	local xOffsetRandom = self:GetClientNumber( "xOffsetRandom" )
-	local xRotationBase = self:GetClientNumber( "xRotationBase" )
-	local xRotationRandom = self:GetClientNumber( "xRotationRandom" )
-
 	local yAmount = self:GetClientNumber( "yAmount" )
-	local yOffsetBase = self:GetClientNumber( "yOffsetBase" )
-	local yOffsetRandom = self:GetClientNumber( "yOffsetRandom" )
-	local yRotationBase = self:GetClientNumber( "yRotationBase" )
-	local yRotationRandom = self:GetClientNumber( "yRotationRandom" )
-
 	local zAmount = self:GetClientNumber( "zAmount" )
+
+	local xOffsetBase = self:GetClientNumber( "xOffsetBase" )
+	local yOffsetBase = self:GetClientNumber( "yOffsetBase" )
 	local zOffsetBase = self:GetClientNumber( "zOffsetBase" )
-	local zOffsetRandom = self:GetClientNumber( "zOffsetRandom" )
-	local zRotationBase = self:GetClientNumber( "zRotationBase" )
-	local zRotationRandom = self:GetClientNumber( "zRotationRandom" )
+
 
 	local tempTable = {}
 	local i = 0
 
 	for x = 0, xAmount - 1 do
-		tempTable[i] = {
-			Vector( xOffsetBase * x, 0, 0 ), -- Position
-			Angle( xRotationBase, yRotationBase, zRotationBase ), -- Rotation
-		}
+		tempTable[i] = Vector( xOffsetBase * x, 0, 0 )
 		i = i + 1
 
 		for y = 0, yAmount - 1 do
 			if (y != 0) then -- This for loop needs to skip the first cycle without affecting the next for loop
-				tempTable[i] = {
-					Vector( xOffsetBase * x, yOffsetBase * y, 0 ), -- Position
-					Angle( xRotationBase, yRotationBase, zRotationBase ), -- Rotation
-				}
+				tempTable[i] = Vector( xOffsetBase * x, yOffsetBase * y, 0 )
 				i = i + 1
 			end
 
 			for z = 1, zAmount - 1 do
-				tempTable[i] = {
-					Vector( xOffsetBase * x, yOffsetBase * y, zOffsetBase * z ), -- Position
-					Angle( xRotationBase, yRotationBase, zRotationBase ), -- Rotation
-				}
+				tempTable[i] = Vector( xOffsetBase * x, yOffsetBase * y, zOffsetBase * z )
 				i = i + 1
 			end
 		end
 	end
 
 	return tempTable
+end
+
+-- A bit unconventional, but this function modifies the original array and returns an angle
+function TOOL:ModifyTransformArray( trace, transformArray, elementAngle ) -- Calculates the position array for both preview and spawning
+	local xRotationBase = self:GetClientNumber( "xRotationBase" )
+	local yRotationBase = self:GetClientNumber( "yRotationBase" )
+	local zRotationBase = self:GetClientNumber( "zRotationBase" )
+
+	local xArrayOffset = self:GetClientNumber( "xArrayOffset" )
+	local yArrayOffset = self:GetClientNumber( "yArrayOffset" )
+	local zArrayOffset = self:GetClientNumber( "zArrayOffset" )
+	local arrayOffset = Vector( xArrayOffset, yArrayOffset, zArrayOffset )
+
+	local xArrayRotation = self:GetClientNumber( "xArrayRotation" )
+	local yArrayRotation = self:GetClientNumber( "yArrayRotation" )
+	local zArrayRotation = self:GetClientNumber( "zArrayRotation" )
+
+	local correctedHitAngle = trace.HitNormal:Angle()
+	correctedHitAngle.x = correctedHitAngle.x + 90
+
+	local tempRot = correctedHitAngle
+	-- local tempRot = Angle()
+	-- tempRot:Add( correctedHitAngle )
+	tempRot:RotateAroundAxis( correctedHitAngle:Forward(), xArrayRotation) -- X
+	tempRot:RotateAroundAxis( correctedHitAngle:Right(), yArrayRotation) -- Y
+	tempRot:RotateAroundAxis( correctedHitAngle:Up(), zArrayRotation) -- Z
+
+	for i, transform in pairs( transformArray ) do
+		local rotatedRelPos = transform
+		rotatedRelPos:Add( arrayOffset )
+		rotatedRelPos:Rotate( tempRot )
+
+		transform = rotatedRelPos
+	end
+
+	tempRot:RotateAroundAxis( correctedHitAngle:Forward(), xRotationBase) -- X
+	tempRot:RotateAroundAxis( correctedHitAngle:Right(), yRotationBase) -- Y
+	tempRot:RotateAroundAxis( correctedHitAngle:Up(), zRotationBase) -- Z
+
+	return tempRot
 end
 
 function TOOL:RandomizeEntityModel( entity )
@@ -195,8 +220,10 @@ end
 function TOOL:SpawnPropTable( player, trace, sid )
 	if ( next( modelPathTable ) == nil ) then return end
 	if ( next( modelPathTable[sid] ) == nil ) then return end
-	local transformTable = self:CreateTransformArray();
+	local transformTable = self:CreateLocalTransformArray();
 	if ( next( transformTable ) == nil ) then return end
+
+	local elementAngle = self:ModifyTransformArray( trace, transformTable )
 
 	undo.Create( "rat_array_object" )
 	undo.SetCustomUndoText( "#tool.rat.undo" )
@@ -206,14 +233,11 @@ function TOOL:SpawnPropTable( player, trace, sid )
 
 		-- if trace.HitNonWorld then return end -- If the player is not looking at the ground then return
 
-		local rotatedRelPos = Vector() + transform[1]
-		rotatedRelPos:Rotate( trace.HitNormal:Angle() )
-
 		local entity = ents.Create( "prop_physics" )
 		print( modelPathTable[sid][math.random( #modelPathTable[sid] )] .. " is le path for de modul" )
 		entity:SetModel( modelPathTable[sid][math.random( #modelPathTable[sid] )] ) -------------
-		entity:SetPos( trace.HitPos + rotatedRelPos )
-		entity:SetAngles( transform[2] + trace.HitNormal:Angle() )
+		entity:SetPos( trace.HitPos + transform )
+		entity:SetAngles( elementAngle )
 		entity:Spawn()
 
 		self:RandomizeEntityModel( entity )
@@ -331,19 +355,19 @@ end
 
 local function RenderAxis( pos, ang )
 	--Rotate only changes the original vector and doesn't return anything, so need to waste some space sadly
-	local linePosZ = Vector( 0, 0, 5 )
-	local linePosY = Vector( 0, 5, 0 )
-	local linePosX = Vector( 5, 0, 0 )
-	linePosZ:Rotate( ang )
-	linePosY:Rotate( ang )
+	local linePosX = Vector( 3, 0, 0 )
+	local linePosY = Vector( 0, 3, 0 )
+	local linePosZ = Vector( 0, 0, 3 )
 	linePosX:Rotate( ang )
+	linePosY:Rotate( ang )
+	linePosZ:Rotate( ang )
 
-	render.DrawLine( pos, pos + linePosZ, Color( 0, 0, 255, 255 ), false ) -- Blue
-	render.DrawLine( pos, pos + linePosY, Color( 0, 255, 0, 255 ), false ) -- Green
 	render.DrawLine( pos, pos + linePosX, Color( 255, 0, 0, 255 ), false ) -- Red
+	render.DrawLine( pos, pos + linePosY, Color( 0, 255, 0, 255 ), false ) -- Green
+	render.DrawLine( pos, pos + linePosZ, Color( 0, 0, 255, 255 ), false ) -- Blue
 
 	-- debugoverlay.Axis( pos + Vector( -10, 0, 0 ), ang, 5, 5, true ) --To compare and make sure my axis directions are correct, "developer 1" needed in console
-	--Render red last to make sure it's always on top and visible
+	--Render blue last to make sure it's always on top and visible
 end
 
 
@@ -353,25 +377,36 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 		local previewBox = tobool( LocalPlayer():GetTool():GetClientNumber( "previewBox" ) )
 		if ( !previewAxis && !previewBox ) then return end
 
-		local transformTable = LocalPlayer():GetTool():CreateTransformArray()
+		local transformTable = LocalPlayer():GetTool():CreateLocalTransformArray()
 		if ( next( transformTable ) == nil ) then return end
 		local trace = LocalPlayer():GetEyeTrace()
 
-		for i = 0, #transformTable do
-			local rotatedRelPos = Vector() + transformTable[i][1]
-			rotatedRelPos:Rotate( trace.HitNormal:Angle() )
+		local elementAngle = LocalPlayer():GetTool():ModifyTransformArray( trace, transformTable )
 
-			-- local rotatedRelRot = Angle() + transformTable[i][2]
-			-- rotatedRelRot:Rotate( trace.HitNormal:Angle() )
-
-			if ( previewAxis ) then
-				RenderAxis( trace.HitPos + rotatedRelPos, trace.HitNormal:Angle() )
-			end
-
+		for i, transform in pairs( transformTable ) do
 			if ( previewBox ) then
-				render.DrawWireframeBox( trace.HitPos + rotatedRelPos, trace.HitNormal:Angle(), Vector( 0.5, 2.5, 2.5 ), Vector( -0.5, -2.5, -2.5 ), Color( 0, 255, 255, 255 ), false )
+				-- render.DrawWireframeBox( trace.HitPos + transformTable[i], elementAngle, Vector( 2.5, 2.5, 0.5 ), Vector( -2.5, -2.5, -0.5 ), Color( 0, 255, 255, 255 ), false )
+				render.DrawWireframeBox( trace.HitPos + transform, elementAngle, Vector( 2.5, 1.0, 0.25 ), Vector( -2.5, -1.0, -0.25 ), Color( 0, 255, 255, 255 ), false )
+			end
+			if ( previewAxis ) then
+				RenderAxis( trace.HitPos + transform, elementAngle )
 			end
 		end
+
+		-- Render thicc axis at trace hit
+		local correctedHitAngle = trace.HitNormal:Angle()
+		correctedHitAngle.x = correctedHitAngle.x + 90
+		local thicc = 0.05
+		render.DrawWireframeBox( trace.HitPos, correctedHitAngle, Vector( 0, 0, 0 ), Vector( 5, thicc, thicc ), Color( 255, 0, 0, 255 ) , false )
+		render.DrawWireframeBox( trace.HitPos, correctedHitAngle, Vector( 0, 0, 0 ), Vector( thicc, 5, thicc ), Color( 0, 255, 0, 255 ) , false )
+		render.DrawWireframeBox( trace.HitPos, correctedHitAngle, Vector( 0, 0, 0 ), Vector( thicc, thicc, 5 ), Color( 0, 0, 255, 255 ) , false )
+
+		-- Draw single box that envelops the whole array
+		-- if ( #transformTable > 1 ) then
+		-- 	local startPos = transformTable[0]
+		-- 	local endPos = transformTable[#transformTable]
+		-- 	render.DrawWireframeBox( trace.HitPos, Angle(), startPos, endPos, Color( 0, 255, 255, 255 ), false )
+		-- end
 
 		render.DrawWireframeSphere( trace.HitPos, LocalPlayer():GetTool():GetClientNumber( "sphereRadius" ), 10, 10, Color( 0, 255, 255, 255 ), true )
 	end
@@ -732,6 +767,37 @@ function TOOL.BuildCPanel( cpanel )
 	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", -180, 180, "rat_xRotationBase" )
 	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", -180, 180, "rat_yRotationBase" )
 	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", -180, 180, "rat_zRotationBase" )
+
+
+	--[[----------------------------------------------------------------]] --ARRAY OFFSETS
+	local DCollapsible = vgui.Create( "DCollapsibleCategory" )
+	DCollapsible:SetExpanded( 1 )
+	DCollapsible:SetLabel( "#tool.rat.arrayOffsets" )
+	cpanel:AddItem( DCollapsible )
+
+	local DermaList = vgui.Create( "DPanelList" )
+	DermaList:SetAutoSize( true )
+	DermaList:SetSpacing( 4 )
+	DermaList:SetPadding( 8 )
+	DermaList.Paint = function()
+		surface.SetDrawColor( 235, 245, 255, 255 )
+		surface.DrawRect( 0, 0, 1000, 500 )
+	end
+	DCollapsible:SetContents( DermaList )
+
+	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.arrayOffset" )
+
+	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", -1000, 1000, "rat_xArrayOffset" )
+	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", -1000, 1000, "rat_yArrayOffset" )
+	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", -1000, 1000, "rat_zArrayOffset" )
+
+
+	MakeText( DermaList, Color( 50, 50, 50 ), "" )
+	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.arrayRotation" )
+
+	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", -180, 180, "rat_xArrayRotation" )
+	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", -180, 180, "rat_yArrayRotation" )
+	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", -180, 180, "rat_zArrayRotation" )
 
 
 	--[[----------------------------------------------------------------]] --RANDOM SPAWN OFFSETS
