@@ -1,4 +1,4 @@
--- Tool made by func_Mathias
+-- Random Array Tool [R.A.T] made by func_Mathias 🐀
 
 TOOL.Name = "#tool.rat.name"
 TOOL.Description = "#tool.rat.desc"
@@ -7,7 +7,8 @@ TOOL.Category = "func_Mathias"
 local toolActive = false
 local stringSpacing = "   "
 
-local modelPathTable = {} -- Model sting paths
+-- Model sting paths table
+local modelPathTable = {}
 
 TOOL.ClientConVar["spawnFrozen"] = "1"
 TOOL.ClientConVar["randomColor"] = "0"
@@ -17,45 +18,43 @@ TOOL.ClientConVar["randomSkip"] = "0"
 
 TOOL.ClientConVar["spawnChance"] = "100"
 
+TOOL.ClientConVar["ignoreSurfaceAngle"] = "0"
 TOOL.ClientConVar["previewAxis"] = "1"
 TOOL.ClientConVar["previewBox"] = "1"
 TOOL.ClientConVar["sphereRadius"] = "0"
 
 TOOL.ClientConVar["mdlName"] = ""
 
-TOOL.ClientConVar["xArrayOffset"] = "0"
-TOOL.ClientConVar["yArrayOffset"] = "0"
-TOOL.ClientConVar["zArrayOffset"] = "0"
-
-TOOL.ClientConVar["xArrayRotation"] = "0"
-TOOL.ClientConVar["yArrayRotation"] = "0"
-TOOL.ClientConVar["zArrayRotation"] = "0"
-
 -- X axis ConVars
 TOOL.ClientConVar["xAmount"] = "1"
 TOOL.ClientConVar["xOffsetBase"] = "0"
 TOOL.ClientConVar["xOffsetRandom"] = "0"
+TOOL.ClientConVar["xArrayOffset"] = "0"
 TOOL.ClientConVar["xRotationBase"] = "0"
 TOOL.ClientConVar["xRotationRandom"] = "0"
+TOOL.ClientConVar["xArrayRotation"] = "0"
 
 -- Y axis ConVars
 TOOL.ClientConVar["yAmount"] = "1"
 TOOL.ClientConVar["yOffsetBase"] = "0"
 TOOL.ClientConVar["yOffsetRandom"] = "0"
+TOOL.ClientConVar["yArrayOffset"] = "0"
 TOOL.ClientConVar["yRotationBase"] = "0"
 TOOL.ClientConVar["yRotationRandom"] = "0"
+TOOL.ClientConVar["yArrayRotation"] = "0"
 
 -- Z axis ConVars
 TOOL.ClientConVar["zAmount"] = "1"
 TOOL.ClientConVar["zOffsetBase"] = "0"
 TOOL.ClientConVar["zOffsetRandom"] = "0"
+TOOL.ClientConVar["zArrayOffset"] = "0"
 TOOL.ClientConVar["zRotationBase"] = "0"
 TOOL.ClientConVar["zRotationRandom"] = "0"
+TOOL.ClientConVar["zArrayRotation"] = "0"
 
 cleanup.Register( "rat_arrays" )
 
 if CLIENT then
-
 	TOOL.Information = {
 		{ name = "left" },
 		{ name = "right" },
@@ -73,7 +72,6 @@ if CLIENT then
 	language.Add( "tool.rat.randomSkin", "Randomize skins" )
 	language.Add( "tool.rat.randomBG", "Randomize bodygroups" )
 	language.Add( "tool.rat.randomSkip", "Skip this many bodygroups" )
-	language.Add( "tool.rat.sphereRadius", "Sphere radius" )
 
 	language.Add( "tool.rat.spawnChance", "Spawn chance (0 - 100)" )
 
@@ -85,8 +83,10 @@ if CLIENT then
 	language.Add( "tool.rat.listHelp5", "- Tip: Adding multiple copies of the same model will increase it's chance of being spawned." )
 	language.Add( "tool.rat.listHelp6", "- Tip: There is no option for saving your list but you can create a custom spawnlist to keep all the desired models in one place for easy adding to this list." )
 
+	language.Add( "tool.rat.ignoreSurfaceAngle", "Ignore surface angle" )
 	language.Add( "tool.rat.previewPosition", "Show position preview" )
 	language.Add( "tool.rat.previewOffset", "Show random position offset" )
+	language.Add( "tool.rat.sphereRadius", "Sphere radius" )
 
 	language.Add( "tool.rat.mdlAdd", "Add model by path" )
 	language.Add( "tool.rat.mdlAddButton", "Add to list from path" )
@@ -111,14 +111,14 @@ if CLIENT then
 	language.Add( "tool.rat.undo", "Undone random array" )
 	language.Add( "Cleanup_rat_arrays", "Random Arrays" )
 	language.Add( "Cleaned_rat_arrays", "Cleaned up all Random Arrays" )
-
 end
 
 if (SERVER) then
-	util.AddNetworkString( "sendTables" ) -- Register the Network String
+	-- Register the Network String
+	util.AddNetworkString( "sendTables" )
 
-	net.Receive( "sendTables", function( len, player ) -- When the server receives the clients Network information
-
+	-- When the server receives the clients Network information
+	net.Receive( "sendTables", function( len, player )
 		local sid = player:SteamID()
 		modelPathTable[sid] = net.ReadTable()
 
@@ -129,7 +129,8 @@ if (SERVER) then
 	end)
 end
 
-function TOOL:CreateLocalTransformArray() -- Calculates the position array for both preview and spawning
+-- Calculates the position array for both preview and spawning
+function TOOL:CreateLocalTransformArray()
 	local xAmount = self:GetClientNumber( "xAmount" )
 	local yAmount = self:GetClientNumber( "yAmount" )
 	local zAmount = self:GetClientNumber( "zAmount" )
@@ -142,6 +143,7 @@ function TOOL:CreateLocalTransformArray() -- Calculates the position array for b
 	local tempTable = {}
 	local i = 0
 
+	-- Calculate the array positions
 	for x = 0, xAmount - 1 do
 		tempTable[i] = Vector( xOffsetBase * x, 0, 0 )
 		i = i + 1
@@ -162,7 +164,7 @@ function TOOL:CreateLocalTransformArray() -- Calculates the position array for b
 	return tempTable
 end
 
--- A bit unconventional, but this function modifies the original array and returns an angle
+-- A bit unconventional, but this function modifies the original array and returns the angle of the array plus object rotation
 function TOOL:ModifyTransformArray( trace, transformArray, elementAngle ) -- Calculates the position array for both preview and spawning
 	local xRotationBase = self:GetClientNumber( "xRotationBase" )
 	local yRotationBase = self:GetClientNumber( "yRotationBase" )
@@ -177,31 +179,38 @@ function TOOL:ModifyTransformArray( trace, transformArray, elementAngle ) -- Cal
 	local yArrayRotation = self:GetClientNumber( "yArrayRotation" )
 	local zArrayRotation = self:GetClientNumber( "zArrayRotation" )
 
+	local ignoreSurfaceAngle = self:GetClientNumber( "ignoreSurfaceAngle" )
+
+	-- Correct the hit angle
 	local correctedHitAngle = trace.HitNormal:Angle()
 	correctedHitAngle.x = correctedHitAngle.x + 90
+	local tempAngle = correctedHitAngle
 
-	local tempRot = correctedHitAngle
-	-- local tempRot = Angle()
-	-- tempRot:Add( correctedHitAngle )
-	tempRot:RotateAroundAxis( correctedHitAngle:Forward(), xArrayRotation) -- X
-	tempRot:RotateAroundAxis( correctedHitAngle:Right(), yArrayRotation) -- Y
-	tempRot:RotateAroundAxis( correctedHitAngle:Up(), zArrayRotation) -- Z
-
-	for i, transform in pairs( transformArray ) do
-		local rotatedRelPos = transform
-		rotatedRelPos:Add( arrayOffset )
-		rotatedRelPos:Rotate( tempRot )
-
-		transform = rotatedRelPos
+	-- Ignore surface angle and set it do a default angle
+	if ( tobool( ignoreSurfaceAngle ) ) then
+		tempAngle = Angle()
 	end
 
-	tempRot:RotateAroundAxis( correctedHitAngle:Forward(), xRotationBase) -- X
-	tempRot:RotateAroundAxis( correctedHitAngle:Right(), yRotationBase) -- Y
-	tempRot:RotateAroundAxis( correctedHitAngle:Up(), zRotationBase) -- Z
+	-- Angle for the array
+	tempAngle:RotateAroundAxis( tempAngle:Forward(), xArrayRotation) -- X
+	tempAngle:RotateAroundAxis( tempAngle:Right(), yArrayRotation) -- Y
+	tempAngle:RotateAroundAxis( tempAngle:Up(), zArrayRotation) -- Z
 
-	return tempRot
+	-- Offset and rotate the array positions
+	for i, transform in pairs( transformArray ) do
+		transform:Add( arrayOffset )
+		transform:Rotate( tempAngle )
+	end
+
+	-- Angle for each element on top of the array rotation
+	tempAngle:RotateAroundAxis( tempAngle:Forward(), xRotationBase) -- X
+	tempAngle:RotateAroundAxis( tempAngle:Right(), yRotationBase) -- Y
+	tempAngle:RotateAroundAxis( tempAngle:Up(), zRotationBase) -- Z
+
+	return tempAngle
 end
 
+-- Randomizes input entity in multiple ways
 function TOOL:RandomizeEntityModel( entity )
 	if ( !IsValid( entity ) ) then return end
 	if ( entity:GetClass() == "prop_effect" ) then entity = entity.AttachedEntity end -- Needed to change prop_effects when tracing directly
@@ -210,10 +219,12 @@ function TOOL:RandomizeEntityModel( entity )
 	-- print( "entity skin count " .. entity:SkinCount() )
 	-- print( "entity number of bodygroup" .. entity:GetNumBodyGroups() )
 
+	-- Randomize skin
 	if ( tobool( self:GetClientNumber( "randomSkin" ) ) && entity:SkinCount() != nil ) then
 		entity:SetSkin( math.random( 0, entity:SkinCount() - 1 ) )
 	end
 
+	-- Randomize body groups
 	if ( tobool( self:GetClientNumber( "randomBG" ) ) && entity:GetNumBodyGroups() != nil ) then
 		for i = 0, entity:GetNumBodyGroups() do
 			if ( i <= self:GetClientNumber( "randomSkip" ) ) then continue end
@@ -221,12 +232,13 @@ function TOOL:RandomizeEntityModel( entity )
 		end
 	end
 
+	-- Randomize color
 	if ( tobool( self:GetClientNumber( "randomColor" ) ) ) then
 		entity:SetColor( ColorRand() )
 	end
 end
 
-
+-- Spawns props from positions in a table
 function TOOL:SpawnPropTable( player, trace, sid )
 	if ( next( modelPathTable ) == nil ) then return end
 	if ( next( modelPathTable[sid] ) == nil ) then return end
@@ -241,9 +253,10 @@ function TOOL:SpawnPropTable( player, trace, sid )
 	undo.SetCustomUndoText( "#tool.rat.undo" )
 	undo.SetPlayer( player )
 
+	-- Loop per position in the table
 	for i, transform in pairs( transformTable ) do
+		-- Check spawn chance
 		if ( spawnChance < math.random( 1, 100 ) ) then continue end
-		-- if trace.HitNonWorld then return end -- If the player is not looking at the ground then return
 
 		local entity = ents.Create( "prop_physics" )
 		print( modelPathTable[sid][math.random( #modelPathTable[sid] )] .. " is le path for de modul" )
@@ -254,12 +267,15 @@ function TOOL:SpawnPropTable( player, trace, sid )
 
 		self:RandomizeEntityModel( entity )
 
-		local phys = entity:GetPhysicsObject()
-		if ( phys:IsValid() ) then
-			frozen = !tobool( self:GetClientNumber( "spawnFrozen" ) )
-			phys:EnableMotion( frozen ) --Freeze prop
+		-- Freeze prop
+		if ( tobool( self:GetClientNumber( "spawnFrozen" ) ) ) then
+			local phys = entity:GetPhysicsObject()
+			if ( phys:IsValid() ) then
+				phys:EnableMotion( false )
+			end
 		end
 
+		-- Add entity to undo and cleanup
 		undo.AddEntity( entity )
 		self:GetOwner():AddCleanup( "rat_arrays", entity )
 	end
@@ -278,13 +294,15 @@ function TOOL:LeftClick( trace )
 		local player = self:GetOwner()
 		local sid = player:SteamID()
 
-		self:SpawnPropTable( player, trace, sid ) --Spawns the props
+		-- Spawns the props
+		self:SpawnPropTable( player, trace, sid )
 	end
 	return true
 end
 
 function TOOL:RightClick( trace )
 	if ( SERVER ) then
+		-- Randomize entity under crosshair
 		self:RandomizeEntityModel( trace.Entity )
 	end
 	return true
@@ -293,6 +311,7 @@ end
 function TOOL:Reload( trace )
 	if ( SERVER ) then
 		local foundEnts = ents.FindInSphere( trace.HitPos, self:GetClientNumber( "sphereRadius" ) )
+		-- Randomize entities within sphere volume
 		for i, entity in pairs( foundEnts ) do
 			if ( IsValid( entity ) ) then
 				self:RandomizeEntityModel( entity )
@@ -304,12 +323,14 @@ end
 
 
 
+-- Debug print
 function TOOL:CheckList()
 	print( "--- Model Path Table Start ---" )
 	PrintTable( modelPathTable )
 	print( "--- Model Path Table End ---" )
 end
 
+-- Find an remove first result in table that matches input string
 local function RemoveFirstMatchInTable( inputTable, inputString )
 	for i, str in ipairs( inputTable ) do
 		if str == inputString then
@@ -319,17 +340,19 @@ local function RemoveFirstMatchInTable( inputTable, inputString )
 	end
 end
 
+-- Send the local model path table to the server
 local function updateServerTables()
 	net.Start( "sendTables" )
 	net.WriteTable( modelPathTable )
 	net.SendToServer()
 end
 
+-- Checks if path is for a model or a folder, if a folder then it returns a table of models in that folder
 local function CheckModelPath( inputDirectory )
 	if string.find( inputDirectory, "%.mdl" ) then
 		print ( "The word .mdl was found." )
-		local tampTable = { inputDirectory }
-		return tampTable
+		local tempTable = { inputDirectory }
+		return tempTable
 	else
 		local tempMdlTable = {}
 		print( "==[LOADING " .. inputDirectory .. "]===========================================" )
@@ -337,7 +360,7 @@ local function CheckModelPath( inputDirectory )
 		PrintTable( fileList )
 		for i, fileName in pairs( fileList ) do
 			local directory = inputDirectory .. "/" .. fileName
-			-- resource.AddFile(directory)
+			-- resource.AddFile( directory )
 			table.insert( tempMdlTable, directory )
 			print( "    >Loaded " .. directory )
 		end
@@ -347,6 +370,7 @@ local function CheckModelPath( inputDirectory )
 	end
 end
 
+-- Creates icons for the model list
 local function AddSpawnIcon( inputListPanel, inputModelPath ) --------------------------------------------------------------------
 	for i, path in ipairs( CheckModelPath( inputModelPath ) ) do
 		local ListItem = inputListPanel:Add( "SpawnIcon" )
@@ -365,6 +389,7 @@ local function AddSpawnIcon( inputListPanel, inputModelPath ) ------------------
 	end
 end
 
+-- Render axis gizmo for visualization
 local function RenderAxis( pos, ang )
 	--Rotate only changes the original vector and doesn't return anything, so need to waste some space sadly
 	local linePosX = Vector( 3, 0, 0 )
@@ -374,34 +399,38 @@ local function RenderAxis( pos, ang )
 	linePosY:Rotate( ang )
 	linePosZ:Rotate( ang )
 
+	-- Render blue last to make sure it's always on top and visible
 	render.DrawLine( pos, pos + linePosX, Color( 255, 0, 0, 255 ), false ) -- Red
 	render.DrawLine( pos, pos + linePosY, Color( 0, 255, 0, 255 ), false ) -- Green
 	render.DrawLine( pos, pos + linePosZ, Color( 0, 0, 255, 255 ), false ) -- Blue
 
-	-- debugoverlay.Axis( pos + Vector( -10, 0, 0 ), ang, 5, 5, true ) --To compare and make sure my axis directions are correct, "developer 1" needed in console
-	--Render blue last to make sure it's always on top and visible
+	-- To compare and make sure my axis directions are correct, "developer 1" needed in console
+	-- debugoverlay.Axis( pos + Vector( -10, 0, 0 ), ang, 5, 5, true )
 end
 
-
-hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( bDrawingDepth, bDrawingSkybox ) --Draws an axis and/or wireframe box per position
+-- Render hook for drawing visualizations for array positions and some more
+hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( bDrawingDepth, bDrawingSkybox )
 	if ( toolActive && LocalPlayer():GetTool() && !bDrawingSkybox ) then
 		local previewAxis = tobool( LocalPlayer():GetTool():GetClientNumber( "previewAxis" ) )
 		local previewBox = tobool( LocalPlayer():GetTool():GetClientNumber( "previewBox" ) )
-		if ( !previewAxis && !previewBox ) then return end
 
-		local transformTable = LocalPlayer():GetTool():CreateLocalTransformArray()
-		if ( next( transformTable ) == nil ) then return end
 		local trace = LocalPlayer():GetEyeTrace()
 
-		local elementAngle = LocalPlayer():GetTool():ModifyTransformArray( trace, transformTable )
+		-- Render per position visualization
+		if ( previewAxis || previewBox ) then
+			local transformTable = LocalPlayer():GetTool():CreateLocalTransformArray()
+			if ( next( transformTable ) == nil ) then return end
 
-		for i, transform in pairs( transformTable ) do
-			if ( previewBox ) then
-				-- render.DrawWireframeBox( trace.HitPos + transformTable[i], elementAngle, Vector( 2.5, 2.5, 0.5 ), Vector( -2.5, -2.5, -0.5 ), Color( 0, 255, 255, 255 ), false )
-				render.DrawWireframeBox( trace.HitPos + transform, elementAngle, Vector( 2.5, 1.0, 0.25 ), Vector( -2.5, -1.0, -0.25 ), Color( 0, 255, 255, 255 ), false )
-			end
-			if ( previewAxis ) then
-				RenderAxis( trace.HitPos + transform, elementAngle )
+			local elementAngle = LocalPlayer():GetTool():ModifyTransformArray( trace, transformTable )
+
+			for i, transform in pairs( transformTable ) do
+				if ( previewBox ) then
+					-- render.DrawWireframeBox( trace.HitPos + transform, elementAngle, Vector( 2.5, 2.5, 0.5 ), Vector( -2.5, -2.5, -0.5 ), Color( 0, 255, 255, 255 ), false )
+					render.DrawWireframeBox( trace.HitPos + transform, elementAngle, Vector( 2.5, 1.0, 0.25 ), Vector( -2.5, -1.0, -0.25 ), Color( 0, 255, 255, 255 ), false )
+				end
+				if ( previewAxis ) then
+					RenderAxis( trace.HitPos + transform, elementAngle )
+				end
 			end
 		end
 
@@ -413,13 +442,14 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 		render.DrawWireframeBox( trace.HitPos, correctedHitAngle, Vector( 0, 0, 0 ), Vector( thicc, 5, thicc ), Color( 0, 255, 0, 255 ) , false )
 		render.DrawWireframeBox( trace.HitPos, correctedHitAngle, Vector( 0, 0, 0 ), Vector( thicc, thicc, 5 ), Color( 0, 0, 255, 255 ) , false )
 
-		-- Draw single box that envelops the whole array
+		-- Render single box that envelops the whole array
 		-- if ( #transformTable > 1 ) then
 		-- 	local startPos = transformTable[0]
 		-- 	local endPos = transformTable[#transformTable]
 		-- 	render.DrawWireframeBox( trace.HitPos, Angle(), startPos, endPos, Color( 0, 255, 255, 255 ), false )
 		-- end
 
+		-- Render sphere for sphere volume
 		render.DrawWireframeSphere( trace.HitPos, LocalPlayer():GetTool():GetClientNumber( "sphereRadius" ), 10, 10, Color( 0, 255, 255, 255 ), true )
 	end
 end)
@@ -545,24 +575,6 @@ function TOOL.BuildCPanel( cpanel )
 	label:SetDark( true )
 	label:Dock( TOP )
 
-
-
-	local control = vgui.Create( "DSizeToContents" )
-	control:Dock( TOP )
-	control:DockPadding( 5, 5, 5, 0 )
-	cpanel:AddItem( control )
-
-	local textbox = vgui.Create( "DNumberWang", control )
-	textbox:SetSize( 40, 20 )
-	textbox:SetMax( 9999 )
-	textbox:SetConVar( "rat_sphereRadius" )
-	textbox:Dock( LEFT )
-
-	local label = vgui.Create( "DLabel", control )
-	label:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.sphereRadius" ) )
-	label:SetDark( true )
-	label:Dock( TOP )
-
 	cpanel:ControlHelp( "" )
 
 	local control = vgui.Create( "DSizeToContents" )
@@ -677,9 +689,25 @@ function TOOL.BuildCPanel( cpanel )
 
 
 	--[[----------------------------------------------------------------]] --Array visualization options
+	cpanel:CheckBox( "#tool.rat.ignoreSurfaceAngle", "rat_ignoreSurfaceAngle" )
 	cpanel:CheckBox( "#tool.rat.previewPosition", "rat_previewAxis" )
 	cpanel:CheckBox( "#tool.rat.previewOffset", "rat_previewBox" )
 
+	local control = vgui.Create( "DSizeToContents" )
+	control:Dock( TOP )
+	control:DockPadding( 5, 5, 5, 0 )
+	cpanel:AddItem( control )
+
+	local textbox = vgui.Create( "DNumberWang", control )
+	textbox:SetSize( 40, 20 )
+	textbox:SetMax( 9999 )
+	textbox:SetConVar( "rat_sphereRadius" )
+	textbox:Dock( LEFT )
+
+	local label = vgui.Create( "DLabel", control )
+	label:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.sphereRadius" ) )
+	label:SetDark( true )
+	label:Dock( TOP )
 
 	--[[----------------------------------------------------------------]] --Model Counter
 	local NumberOfModelsText = vgui.Create( "DLabel" )
