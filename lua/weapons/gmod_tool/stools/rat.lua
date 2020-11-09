@@ -25,6 +25,11 @@ TOOL.ClientConVar["sphereRadius"] = "0"
 
 TOOL.ClientConVar["mdlName"] = ""
 
+-- UI foldout states
+TOOL.ClientConVar["spawnTransformExpanded"] = "1"
+TOOL.ClientConVar["arrayOffsetsExpanded"] = "0"
+TOOL.ClientConVar["randomSpawnOffsetsExpanded"] = "0"
+
 -- X axis ConVars
 TOOL.ClientConVar["xAmount"] = "1"
 TOOL.ClientConVar["xOffsetBase"] = "0"
@@ -95,7 +100,7 @@ if CLIENT then
 	language.Add( "tool.rat.numOfObjects", "Number of objects: " )
 	language.Add( "tool.rat.copiesIn", "Copies in " )
 
-	language.Add( "tool.rat.spawnTransform", "Spawn transforms" )
+	language.Add( "tool.rat.spawnTransforms", "Spawn transforms" )
 	language.Add( "tool.rat.spacing", "Spacing" )
 	language.Add( "tool.rat.rotation", "Rotation" )
 	language.Add( "tool.rat.randomSpawnOffsets", "Random spawn offsets" )
@@ -355,7 +360,7 @@ end
 -- Checks if path is for a model or a folder, if a folder then it returns a table of models in that folder
 local function CheckModelPath( inputDirectory )
 	if string.find( inputDirectory, "%.mdl" ) then
-		print ( "The word .mdl was found." )
+		print ( "The word .mdl was found in path: " .. inputDirectory )
 		local tempTable = { inputDirectory }
 		return tempTable
 	else
@@ -541,6 +546,9 @@ function TOOL:UpdateControlPanel( index )
 	local panel = controlpanel.Get( "rat" )
 	if ( !panel ) then MsgN( "No panel found for Random Array Tool!" ) return end
 
+	modelPathTable = {}
+	updateServerTables()
+
 	panel:ClearControls()
 	cvars.RemoveChangeCallback("rat_xAmount", "rat_xAmount_callback")
 	cvars.RemoveChangeCallback("rat_yAmount", "rat_yAmount_callback")
@@ -550,11 +558,6 @@ function TOOL:UpdateControlPanel( index )
 end
 
 function TOOL.BuildCPanel( cpanel )
-	-- Reset ConVar values for ui elements that can't grap it when being built (DNumberWang)
-	-- GetConVar( "rat_xAmount" ):Revert()
-	-- GetConVar( "rat_yAmount" ):Revert()
-	-- GetConVar( "rat_zAmount" ):Revert()
-
 	MakeText( cpanel, Color( 50, 50, 50 ), "#tool.rat.desc" )
 
 	cpanel:CheckBox( "#tool.rat.spawnFrozen", "rat_spawnFrozen" )
@@ -573,6 +576,9 @@ function TOOL.BuildCPanel( cpanel )
 	local textbox = vgui.Create( "DNumberWang", control )
 	textbox:SetSize( 40, 20 )
 	textbox:SetConVar( "rat_randomSkip" )
+	if ( GetConVar( "rat_randomSkip" ) != nil ) then -- Dumb hack to make DNumberWang read the value when first built, don't know why only they don't
+		textbox:SetValue( GetConVar( "rat_randomSkip" ):GetFloat() )
+	end
 	textbox:Dock( LEFT )
 
 	local label = vgui.Create( "DLabel", control )
@@ -707,6 +713,9 @@ function TOOL.BuildCPanel( cpanel )
 	textbox:SetSize( 40, 20 )
 	textbox:SetMax( 9999 )
 	textbox:SetConVar( "rat_sphereRadius" )
+	if ( GetConVar( "rat_sphereRadius" ) != nil ) then -- Dumb hack to make DNumberWang read the value when first built, don't know why only they don't
+		textbox:SetValue( GetConVar( "rat_sphereRadius" ):GetFloat() )
+	end
 	textbox:Dock( LEFT )
 
 	local label = vgui.Create( "DLabel", control )
@@ -808,8 +817,13 @@ function TOOL.BuildCPanel( cpanel )
 
 	--[[----------------------------------------------------------------]] --SPAWN TRANSFORMS
 	local DCollapsible = vgui.Create( "DCollapsibleCategory" )
-	DCollapsible:SetExpanded( 1 )
-	DCollapsible:SetLabel( "#tool.rat.spawnTransform" )
+	DCollapsible:SetLabel( "#tool.rat.spawnTransforms" )
+	function DCollapsible:OnToggle( val )
+		GetConVar( "rat_spawnTransformExpanded" ):SetInt( val && 1 || 0 ) -- 1 if val is true, 0 if false
+	end
+	if ( GetConVar( "rat_spawnTransformExpanded" ) != nil ) then
+		DCollapsible:SetExpanded( GetConVar( "rat_spawnTransformExpanded" ):GetInt() )
+	end
 	cpanel:AddItem( DCollapsible )
 
 	local DermaList = vgui.Create( "DPanelList" )
@@ -839,8 +853,13 @@ function TOOL.BuildCPanel( cpanel )
 
 	--[[----------------------------------------------------------------]] --ARRAY OFFSETS
 	local DCollapsible = vgui.Create( "DCollapsibleCategory" )
-	DCollapsible:SetExpanded( 1 )
 	DCollapsible:SetLabel( "#tool.rat.arrayOffsets" )
+	function DCollapsible:OnToggle( val )
+		GetConVar( "rat_arrayOffsetsExpanded" ):SetInt( val && 1 || 0 ) -- 1 if val is true, 0 if false
+	end
+	if ( GetConVar( "rat_arrayOffsetsExpanded" ) != nil ) then
+		DCollapsible:SetExpanded( GetConVar( "rat_arrayOffsetsExpanded" ):GetInt() )
+	end
 	cpanel:AddItem( DCollapsible )
 
 	local DermaList = vgui.Create( "DPanelList" )
@@ -870,8 +889,13 @@ function TOOL.BuildCPanel( cpanel )
 
 	--[[----------------------------------------------------------------]] --RANDOM SPAWN OFFSETS
 	local DCollapsible = vgui.Create( "DCollapsibleCategory" )
-	DCollapsible:SetExpanded( 1 )
 	DCollapsible:SetLabel( "#tool.rat.randomSpawnOffsets" )
+	function DCollapsible:OnToggle( val )
+		GetConVar( "rat_randomSpawnOffsetsExpanded" ):SetInt( val && 1 || 0 ) -- 1 if val is true, 0 if false
+	end
+	if ( GetConVar( "rat_randomSpawnOffsetsExpanded" ) != nil ) then
+		DCollapsible:SetExpanded( GetConVar( "rat_randomSpawnOffsetsExpanded" ):GetInt() )
+	end
 	cpanel:AddItem( DCollapsible )
 
 	local DermaList = vgui.Create( "DPanelList" )
