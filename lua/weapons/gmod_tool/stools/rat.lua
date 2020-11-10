@@ -11,6 +11,7 @@ local stringSpacing = "   "
 local modelPathTable = {}
 
 TOOL.ClientConVar["spawnFrozen"] = "1"
+TOOL.ClientConVar["freezeRootBoneOnly"] = "1"
 TOOL.ClientConVar["randomColor"] = "0"
 TOOL.ClientConVar["randomSkin"] = "1"
 TOOL.ClientConVar["randomBG"] = "1"
@@ -73,6 +74,7 @@ if CLIENT then
 	language.Add( "tool.rat.desc", "This tool lets you spawn objects in a randomized array, or randomize already spawned objects in various ways." )
 
 	language.Add( "tool.rat.spawnFrozen", "Spawn frozen" )
+	language.Add( "tool.rat.freezeRootBoneOnly", "Freeze only root bone of ragdolls" )
 	language.Add( "tool.rat.randomColor", "Randomize color" )
 	language.Add( "tool.rat.randomSkin", "Randomize skins" )
 	language.Add( "tool.rat.randomBG", "Randomize bodygroups" )
@@ -284,6 +286,17 @@ function TOOL:SpawnPropTable( player, trace, sid )
 			local phys = entity:GetPhysicsObject()
 			if ( phys:IsValid() ) then
 				phys:EnableMotion( false )
+				player:AddFrozenPhysicsObject( entity, phys )
+			end
+			if ( entity:IsRagdoll() && !tobool( self:GetClientNumber( "freezeRootBoneOnly" ) ) ) then
+				local boneCount = entity:GetPhysicsObjectCount()
+
+				for bone = 1, boneCount - 1 do
+					local physBone = entity:GetPhysicsObjectNum( bone )
+					physBone:EnableMotion( false )
+					-- Causes severe lag because of the halo effect, but can be a bit confusing/annoying to unfreeze a ragdoll without..
+					player:AddFrozenPhysicsObject( entity, physBone )
+				end
 			end
 		end
 
@@ -300,6 +313,7 @@ end
 function TOOL:LeftClick( trace )
 	if ( CLIENT ) then
 		print( "Left got clicked" )
+		notification.AddLegacy( "Undone Prop", NOTIFY_UNDO, 2 )
 	end
 
 	if ( SERVER ) then
@@ -561,6 +575,7 @@ function TOOL.BuildCPanel( cpanel )
 	MakeText( cpanel, Color( 50, 50, 50 ), "#tool.rat.desc" )
 
 	cpanel:CheckBox( "#tool.rat.spawnFrozen", "rat_spawnFrozen" )
+	cpanel:CheckBox( "#tool.rat.freezeRootBoneOnly", "rat_freezeRootBoneOnly" )
 	cpanel:CheckBox( "#tool.rat.randomColor", "rat_randomColor" )
 	cpanel:CheckBox( "#tool.rat.randomSkin", "rat_randomSkin" )
 	cpanel:CheckBox( "#tool.rat.randomBG", "rat_randomBG" )
