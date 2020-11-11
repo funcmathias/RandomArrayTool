@@ -38,6 +38,7 @@ TOOL.ClientConVar["xOffsetRandom"] = "0"
 TOOL.ClientConVar["xArrayOffset"] = "0"
 TOOL.ClientConVar["xRotationBase"] = "0"
 TOOL.ClientConVar["xRotationRandom"] = "0"
+TOOL.ClientConVar["xRotationRandomStepped"] = "0"
 TOOL.ClientConVar["xArrayRotation"] = "0"
 
 -- Y axis ConVars
@@ -47,6 +48,7 @@ TOOL.ClientConVar["yOffsetRandom"] = "0"
 TOOL.ClientConVar["yArrayOffset"] = "0"
 TOOL.ClientConVar["yRotationBase"] = "0"
 TOOL.ClientConVar["yRotationRandom"] = "0"
+TOOL.ClientConVar["yRotationRandomStepped"] = "0"
 TOOL.ClientConVar["yArrayRotation"] = "0"
 
 -- Z axis ConVars
@@ -56,6 +58,7 @@ TOOL.ClientConVar["zOffsetRandom"] = "0"
 TOOL.ClientConVar["zArrayOffset"] = "0"
 TOOL.ClientConVar["zRotationBase"] = "0"
 TOOL.ClientConVar["zRotationRandom"] = "0"
+TOOL.ClientConVar["zRotationRandomStepped"] = "0"
 TOOL.ClientConVar["zArrayRotation"] = "0"
 
 cleanup.Register( "rat_arrays" )
@@ -108,6 +111,7 @@ if CLIENT then
 	language.Add( "tool.rat.randomSpawnOffsets", "Random spawn offsets" )
 	language.Add( "tool.rat.randomSpacing", "Random offset" )
 	language.Add( "tool.rat.randomRotation", "Random rotation" )
+	language.Add( "tool.rat.randomRotationStepped", "Random stepped rotation" )
 	language.Add( "tool.rat.arrayOffsets", "Array offsets" )
 	language.Add( "tool.rat.arrayOffset", "Offset" )
 	language.Add( "tool.rat.arrayRotation", "Rotation" )
@@ -243,18 +247,37 @@ function TOOL:RandomizeRotation( baseRotation )
 	local yRotationRandom = self:GetClientNumber( "yRotationRandom" )
 	local zRotationRandom = self:GetClientNumber( "zRotationRandom" )
 
-	if ( xRotationRandom == 0 && yRotationRandom == 0 && zRotationRandom == 0 ) then
-		return baseRotation
-	end
-
-	xRotationRandom = math.random( xRotationRandom * -1, xRotationRandom )
-	yRotationRandom = math.random( yRotationRandom * -1, yRotationRandom )
-	zRotationRandom = math.random( zRotationRandom * -1, zRotationRandom )
+	local xRotationRandomStepped = self:GetClientNumber( "xRotationRandomStepped" )
+	local yRotationRandomStepped = self:GetClientNumber( "yRotationRandomStepped" )
+	local zRotationRandomStepped = self:GetClientNumber( "zRotationRandomStepped" )
 
 	local tempAngle = Angle() + baseRotation
-	tempAngle:RotateAroundAxis( tempAngle:Forward(), xRotationRandom) -- X
-	tempAngle:RotateAroundAxis( tempAngle:Right(), yRotationRandom) -- Y
-	tempAngle:RotateAroundAxis( tempAngle:Up(), zRotationRandom) -- Z
+	local snapAngle = Angle( math.random( 0, 359 ), math.random( 0, 359 ), math.random( 0, 359 ) )
+
+	if ( xRotationRandomStepped >= 1 ) then
+		snapAngle:SnapTo( "pitch", xRotationRandomStepped )
+		tempAngle:RotateAroundAxis( tempAngle:Forward(), snapAngle.X ) -- X
+	end
+
+	if ( yRotationRandomStepped >= 1 ) then
+		snapAngle:SnapTo( "yaw", yRotationRandomStepped )
+		tempAngle:RotateAroundAxis( tempAngle:Right(), snapAngle.Y ) -- Y
+	end
+
+	if ( zRotationRandomStepped >= 1 ) then
+		snapAngle:SnapTo( "roll", zRotationRandomStepped )
+		tempAngle:RotateAroundAxis( tempAngle:Up(), snapAngle.Z ) -- Z
+	end
+
+	if ( xRotationRandom != 0 || yRotationRandom != 0 || zRotationRandom != 0 ) then
+		xRotationRandom = math.random( xRotationRandom * -1, xRotationRandom )
+		yRotationRandom = math.random( yRotationRandom * -1, yRotationRandom )
+		zRotationRandom = math.random( zRotationRandom * -1, zRotationRandom )
+
+		tempAngle:RotateAroundAxis( tempAngle:Forward(), xRotationRandom) -- X
+		tempAngle:RotateAroundAxis( tempAngle:Right(), yRotationRandom) -- Y
+		tempAngle:RotateAroundAxis( tempAngle:Up(), zRotationRandom) -- Z
+	end
 
 	return tempAngle
 end
@@ -979,13 +1002,19 @@ function TOOL.BuildCPanel( cpanel )
 	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", 0, 1000, "rat_yOffsetRandom" )
 	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", 0, 1000, "rat_zOffsetRandom" )
 
-
 	MakeText( DermaList, Color( 50, 50, 50 ), "" )
 	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.randomRotation" )
 
 	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", 0, 180, "rat_xRotationRandom" )
 	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", 0, 180, "rat_yRotationRandom" )
 	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", 0, 180, "rat_zRotationRandom" )
+
+	MakeText( DermaList, Color( 50, 50, 50 ), "" )
+	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.randomRotationStepped" )
+
+	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", 0, 180, "rat_xRotationRandomStepped" )
+	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", 0, 180, "rat_yRotationRandomStepped" )
+	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", 0, 180, "rat_zRotationRandomStepped" )
 
 
 	--[[----------------------------------------------------------------]] --DEBUG
