@@ -107,14 +107,25 @@ if CLIENT then
 
 	language.Add( "tool.rat.spawnTransforms", "Spawn transforms" )
 	language.Add( "tool.rat.spacing", "Spacing" )
+	language.Add( "tool.rat.spacingDescription", "Space between each array point." .. string.char(10) .. "Click text to reset!" )
 	language.Add( "tool.rat.rotation", "Rotation" )
-	language.Add( "tool.rat.randomSpawnOffsets", "Random spawn offsets" )
-	language.Add( "tool.rat.randomSpacing", "Random offset" )
-	language.Add( "tool.rat.randomRotation", "Random rotation" )
-	language.Add( "tool.rat.randomRotationStepped", "Random stepped rotation" )
+	language.Add( "tool.rat.rotationDescription", "Rotation of all array points." .. string.char(10) .. "Click text to reset!" )
+
 	language.Add( "tool.rat.arrayOffsets", "Array offsets" )
 	language.Add( "tool.rat.arrayOffset", "Offset" )
+	language.Add( "tool.rat.arrayOffsetDescription", "Position offset for the whole array." .. string.char(10) .. "Click text to reset!" )
 	language.Add( "tool.rat.arrayRotation", "Rotation" )
+	language.Add( "tool.rat.arrayRotationDescription", "Rotation for the whole array." .. string.char(10) .. "Click text to reset!" )
+
+	language.Add( "tool.rat.randomSpawnOffsets", "Random spawn offsets" )
+	language.Add( "tool.rat.randomSpacing", "Random offset" )
+	language.Add( "tool.rat.randomSpacingDescription", "Random additional position offset per array point." .. string.char(10) .. "Click text to reset!" )
+	language.Add( "tool.rat.randomRotation", "Random rotation" )
+	language.Add( "tool.rat.randomRotationDescription", "Random additional rotation per array point." .. string.char(10) .. "Click text to reset!" )
+	language.Add( "tool.rat.randomRotationStepped", "Random stepped rotation" )
+	language.Add( "tool.rat.randomRotationSteppedDescription", "Random additional stepped rotation per array point." .. string.char(10) ..
+	"If you use 180 degrees for example it will face one of two ways." .. string.char(10) .. "Click text to reset!" )
+
 	language.Add( "tool.rat.xAxis", "X axis" )
 	language.Add( "tool.rat.yAxis", "Y axis" )
 	language.Add( "tool.rat.zAxis", "Z axis" )
@@ -586,6 +597,8 @@ local function MakeText( panel, color, str )
 	Text:SetColor( color )
 	Text:SetWrap( true )
 	panel:AddItem( Text )
+
+	return Text
 end
 
 local function MakeAxisSlider( panel, color, str, min, max, conVar )
@@ -602,11 +615,28 @@ local function MakeAxisSlider( panel, color, str, min, max, conVar )
 	end
 	panel:AddItem( DermaNumSlider )
 
-	function DermaNumSlider:OnValueChanged( val )
-		-- print( val )
+	return DermaNumSlider
+end
+
+local function MakeAxisSliderGroup( panel, titleString, tooltipString, min, max, conVar1, conVar2, conVar3 )
+	local Text = MakeText( panel, Color( 50, 50, 50 ), titleString )
+	Text:SetTooltip( tooltipString )
+	Text:SetMouseInputEnabled( true )
+	function Text:DoClick()
+		GetConVar( conVar1 ):Revert()
+		GetConVar( conVar2 ):Revert()
+		GetConVar( conVar3 ):Revert()
+	end
+	function Text:OnCursorEntered()
+		Text:SetColor( Color( 200, 100, 0 ) )
+	end
+	function Text:OnCursorExited()
+		Text:SetColor( Color( 50, 50, 50 ) )
 	end
 
-	return DermaNumSlider
+	MakeAxisSlider( panel, Color( 230, 0, 0 ), "#tool.rat.xAxis", min, max, conVar1 )
+	MakeAxisSlider( panel, Color( 0, 230, 0 ), "#tool.rat.yAxis", min, max, conVar2 )
+	MakeAxisSlider( panel, Color( 0, 0, 230 ), "#tool.rat.zAxis", min, max, conVar3 )
 end
 
 local function ChangeAndColorModelCount( panel )
@@ -924,19 +954,14 @@ function TOOL.BuildCPanel( cpanel )
 	end
 	DCollapsible:SetContents( DermaList )
 
-	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.spacing" )
 
-	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", -1000, 1000, "rat_xOffsetBase" )
-	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", -1000, 1000, "rat_yOffsetBase" )
-	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", -1000, 1000, "rat_zOffsetBase" )
-
+	MakeAxisSliderGroup( DermaList, "#tool.rat.spacing", "#tool.rat.spacingDescription", -1000, 1000,
+	"rat_xOffsetBase", "rat_yOffsetBase", "rat_zOffsetBase" )
 
 	MakeText( DermaList, Color( 50, 50, 50 ), "" )
-	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.rotation" )
 
-	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", -180, 180, "rat_xRotationBase" )
-	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", -180, 180, "rat_yRotationBase" )
-	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", -180, 180, "rat_zRotationBase" )
+	MakeAxisSliderGroup( DermaList, "#tool.rat.rotation", "#tool.rat.rotationDescription", -180, 180,
+	"rat_xRotationBase", "rat_yRotationBase", "rat_zRotationBase" )
 
 
 	--[[----------------------------------------------------------------]] --ARRAY OFFSETS
@@ -960,19 +985,14 @@ function TOOL.BuildCPanel( cpanel )
 	end
 	DCollapsible:SetContents( DermaList )
 
-	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.arrayOffset" )
 
-	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", -1000, 1000, "rat_xArrayOffset" )
-	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", -1000, 1000, "rat_yArrayOffset" )
-	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", -1000, 1000, "rat_zArrayOffset" )
-
+	MakeAxisSliderGroup( DermaList, "#tool.rat.arrayOffset", "#tool.rat.arrayOffsetDescription", -1000, 1000,
+	"rat_xArrayOffset", "rat_yArrayOffset", "rat_zArrayOffset" )
 
 	MakeText( DermaList, Color( 50, 50, 50 ), "" )
-	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.arrayRotation" )
 
-	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", -180, 180, "rat_xArrayRotation" )
-	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", -180, 180, "rat_yArrayRotation" )
-	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", -180, 180, "rat_zArrayRotation" )
+	MakeAxisSliderGroup( DermaList, "#tool.rat.arrayRotation", "#tool.rat.arrayRotationDescription", -180, 180,
+	"rat_xArrayRotation", "rat_yArrayRotation", "rat_zArrayRotation" )
 
 
 	--[[----------------------------------------------------------------]] --RANDOM SPAWN OFFSETS
@@ -996,25 +1016,19 @@ function TOOL.BuildCPanel( cpanel )
 	end
 	DCollapsible:SetContents( DermaList )
 
-	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.randomSpacing" )
 
-	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", 0, 1000, "rat_xOffsetRandom" )
-	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", 0, 1000, "rat_yOffsetRandom" )
-	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", 0, 1000, "rat_zOffsetRandom" )
+	MakeAxisSliderGroup( DermaList, "#tool.rat.randomSpacing", "#tool.rat.randomSpacingDescription", 0, 1000,
+	"rat_xOffsetRandom", "rat_yOffsetRandom", "rat_zOffsetRandom" )
 
 	MakeText( DermaList, Color( 50, 50, 50 ), "" )
-	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.randomRotation" )
 
-	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", 0, 180, "rat_xRotationRandom" )
-	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", 0, 180, "rat_yRotationRandom" )
-	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", 0, 180, "rat_zRotationRandom" )
+	MakeAxisSliderGroup( DermaList, "#tool.rat.randomRotation", "#tool.rat.randomRotationDescription", 0, 180,
+	"rat_xRotationRandom", "rat_yRotationRandom", "rat_zRotationRandom" )
 
 	MakeText( DermaList, Color( 50, 50, 50 ), "" )
-	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.randomRotationStepped" )
 
-	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", 0, 180, "rat_xRotationRandomStepped" )
-	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", 0, 180, "rat_yRotationRandomStepped" )
-	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", 0, 180, "rat_zRotationRandomStepped" )
+	MakeAxisSliderGroup( DermaList, "#tool.rat.randomRotationStepped", "#tool.rat.randomRotationSteppedDescription", 0, 180,
+	"rat_xRotationRandomStepped", "rat_yRotationRandomStepped", "rat_zRotationRandomStepped" )
 
 
 	--[[----------------------------------------------------------------]] --DEBUG
