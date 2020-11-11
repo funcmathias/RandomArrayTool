@@ -106,7 +106,7 @@ if CLIENT then
 	language.Add( "tool.rat.spacing", "Spacing" )
 	language.Add( "tool.rat.rotation", "Rotation" )
 	language.Add( "tool.rat.randomSpawnOffsets", "Random spawn offsets" )
-	language.Add( "tool.rat.randomSpacing", "Random spacing" )
+	language.Add( "tool.rat.randomSpacing", "Random offset" )
 	language.Add( "tool.rat.randomRotation", "Random rotation" )
 	language.Add( "tool.rat.arrayOffsets", "Array offsets" )
 	language.Add( "tool.rat.arrayOffset", "Offset" )
@@ -171,8 +171,28 @@ function TOOL:CreateLocalTransformArray()
 	return tempTable
 end
 
+-- Randomly offsets the input position by the random offset convars, should be called before ModifyTransformArray
+function TOOL:RandomizeTransformArrayPosition( transformArray )
+	local xOffsetRandom = self:GetClientNumber( "xOffsetRandom" )
+	local yOffsetRandom = self:GetClientNumber( "yOffsetRandom" )
+	local zOffsetRandom = self:GetClientNumber( "zOffsetRandom" )
+
+	if ( xOffsetRandom == 0 && yOffsetRandom == 0 && zOffsetRandom == 0 ) then
+		return
+	end
+
+	-- Offset each position in array
+	for i, transform in pairs( transformArray ) do
+		local xOffset = math.random( xOffsetRandom * -1, xOffsetRandom )
+		local yOffset = math.random( yOffsetRandom * -1, yOffsetRandom )
+		local zOffset = math.random( zOffsetRandom * -1, zOffsetRandom )
+		local offset = Vector( xOffset, yOffset, zOffset )
+		transform:Add( offset )
+	end
+end
+
 -- A bit unconventional, but this function modifies the original array and returns the angle of the array plus object rotation
-function TOOL:ModifyTransformArray( trace, transformArray, elementAngle ) -- Calculates the position array for both preview and spawning
+function TOOL:ModifyTransformArray( trace, transformArray ) -- Calculates the position array for both preview and spawning
 	local xRotationBase = self:GetClientNumber( "xRotationBase" )
 	local yRotationBase = self:GetClientNumber( "yRotationBase" )
 	local zRotationBase = self:GetClientNumber( "zRotationBase" )
@@ -217,6 +237,28 @@ function TOOL:ModifyTransformArray( trace, transformArray, elementAngle ) -- Cal
 	return tempAngle
 end
 
+-- Randomly rotates the input angle by the random rotation convars
+function TOOL:RandomizeRotation( baseRotation )
+	local xRotationRandom = self:GetClientNumber( "xRotationRandom" )
+	local yRotationRandom = self:GetClientNumber( "yRotationRandom" )
+	local zRotationRandom = self:GetClientNumber( "zRotationRandom" )
+
+	if ( xRotationRandom == 0 && yRotationRandom == 0 && zRotationRandom == 0 ) then
+		return baseRotation
+	end
+
+	xRotationRandom = math.random( xRotationRandom * -1, xRotationRandom )
+	yRotationRandom = math.random( yRotationRandom * -1, yRotationRandom )
+	zRotationRandom = math.random( zRotationRandom * -1, zRotationRandom )
+
+	local tempAngle = Angle() + baseRotation
+	tempAngle:RotateAroundAxis( tempAngle:Forward(), xRotationRandom) -- X
+	tempAngle:RotateAroundAxis( tempAngle:Right(), yRotationRandom) -- Y
+	tempAngle:RotateAroundAxis( tempAngle:Up(), zRotationRandom) -- Z
+
+	return tempAngle
+end
+
 -- Randomizes input entity in multiple ways
 function TOOL:RandomizeEntityModel( entity )
 	if ( !IsValid( entity ) ) then return end
@@ -254,7 +296,11 @@ function TOOL:SpawnPropTable( player, trace, sid )
 	local transformTable = self:CreateLocalTransformArray();
 	if ( next( transformTable ) == nil ) then return end
 
-	local elementAngle = self:ModifyTransformArray( trace, transformTable )
+	-- Adds random offsets to the whole array
+	self:RandomizeTransformArrayPosition( transformTable )
+	-- Offsets and rotates the array as a whole, and returns the array ralative rotation for objects
+	local elementAngleStatic = self:ModifyTransformArray( trace, transformTable )
+	local elementAngle = Angle()
 
 	local spawnChance = self:GetClientNumber( "spawnChance" )
 
@@ -266,6 +312,9 @@ function TOOL:SpawnPropTable( player, trace, sid )
 	for i, transform in pairs( transformTable ) do
 		-- Check spawn chance
 		if ( spawnChance < math.random( 1, 100 ) ) then continue end
+
+		-- Adds random rotation to input angle
+		elementAngle = self:RandomizeRotation( elementAngleStatic )
 
 		local modelPath = modelPathTable[sid][math.random( #modelPathTable[sid] )]
 		local entityType = "prop_effect"
@@ -313,7 +362,6 @@ end
 function TOOL:LeftClick( trace )
 	if ( CLIENT ) then
 		print( "Left got clicked" )
-		notification.AddLegacy( "Undone Prop", NOTIFY_UNDO, 2 )
 	end
 
 	if ( SERVER ) then
@@ -445,7 +493,9 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 			local transformTable = LocalPlayer():GetTool():CreateLocalTransformArray()
 			if ( next( transformTable ) == nil ) then return end
 
+			-- LocalPlayer():GetTool():RandomizeTransformArrayPosition( transformTable ) -- For easy debugging of random positions
 			local elementAngle = LocalPlayer():GetTool():ModifyTransformArray( trace, transformTable )
+			-- elementAngle = LocalPlayer():GetTool():RandomizeRotation( elementAngle ) -- For easy debugging of random rotations
 
 			for i, transform in pairs( transformTable ) do
 				if ( previewBox ) then
@@ -933,9 +983,9 @@ function TOOL.BuildCPanel( cpanel )
 	MakeText( DermaList, Color( 50, 50, 50 ), "" )
 	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.randomRotation" )
 
-	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", -180, 180, "rat_xRotationRandom" )
-	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", -180, 180, "rat_yRotationRandom" )
-	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", -180, 180, "rat_zRotationRandom" )
+	Slider = MakeAxisSlider( DermaList, Color( 230, 0, 0 ), "#tool.rat.xAxis", 0, 180, "rat_xRotationRandom" )
+	Slider = MakeAxisSlider( DermaList, Color( 0, 230, 0 ), "#tool.rat.yAxis", 0, 180, "rat_yRotationRandom" )
+	Slider = MakeAxisSlider( DermaList, Color( 0, 0, 230 ), "#tool.rat.zAxis", 0, 180, "rat_zRotationRandom" )
 
 
 	--[[----------------------------------------------------------------]] --DEBUG
