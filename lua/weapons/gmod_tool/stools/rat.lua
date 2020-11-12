@@ -14,7 +14,7 @@ TOOL.ClientConVar["spawnFrozen"] = "1"
 TOOL.ClientConVar["freezeRootBoneOnly"] = "1"
 TOOL.ClientConVar["randomColor"] = "0"
 TOOL.ClientConVar["randomSkin"] = "1"
-TOOL.ClientConVar["randomBG"] = "1"
+TOOL.ClientConVar["randomBodygroup"] = "1"
 TOOL.ClientConVar["randomSkip"] = "0"
 
 TOOL.ClientConVar["spawnChance"] = "100"
@@ -27,9 +27,9 @@ TOOL.ClientConVar["sphereRadius"] = "0"
 TOOL.ClientConVar["mdlName"] = ""
 
 -- UI foldout states
-TOOL.ClientConVar["spawnTransformExpanded"] = "1"
-TOOL.ClientConVar["arrayOffsetsExpanded"] = "0"
-TOOL.ClientConVar["randomSpawnOffsetsExpanded"] = "0"
+TOOL.ClientConVar["pointTransformExpanded"] = "1"
+TOOL.ClientConVar["arrayTransformsExpanded"] = "0"
+TOOL.ClientConVar["randomPointTransformsExpanded"] = "0"
 
 -- X axis ConVars
 TOOL.ClientConVar["xAmount"] = "1"
@@ -78,9 +78,9 @@ if CLIENT then
 
 	language.Add( "tool.rat.spawnFrozen", "Spawn frozen" )
 	language.Add( "tool.rat.freezeRootBoneOnly", "Freeze only root bone of ragdolls" )
-	language.Add( "tool.rat.randomColor", "Randomize color" )
+	language.Add( "tool.rat.randomColor", "Apply random colors" )
 	language.Add( "tool.rat.randomSkin", "Randomize skins" )
-	language.Add( "tool.rat.randomBG", "Randomize bodygroups" )
+	language.Add( "tool.rat.randomBodygroup", "Randomize bodygroups" )
 	language.Add( "tool.rat.randomSkip", "Skip this many bodygroups" )
 
 	language.Add( "tool.rat.spawnChance", "Spawn chance (0 - 100)" )
@@ -88,49 +88,49 @@ if CLIENT then
 	language.Add( "tool.rat.listHelpTitle", "Object list help - Click for info" )
 	language.Add( "tool.rat.listHelp1", "With the panel below you can keep track of the models you want to randomly spawn." )
 	language.Add( "tool.rat.listHelp2", "- You can drag and drop any model from the default spawnlist into the grey panel below to add them. You can select and drag multiple at once!" )
-	language.Add( "tool.rat.listHelp3", "- You can also add models by using a path, if it's a path to a folder it will add every model in the folder. Be careful with folders containing a big amount of models." )
+	language.Add( "tool.rat.listHelp3", "- You can also add models by using a path, if it's a path to a folder it will add every model in the folder. Be careful with folders containing a large amount of models." )
 	language.Add( "tool.rat.listHelp4", "- Right click on one of the model icons to remove it from the list." )
 	language.Add( "tool.rat.listHelp5", "- Tip: Adding multiple copies of the same model will increase it's chance of being spawned." )
 	language.Add( "tool.rat.listHelp6", "- Tip: There is no option for saving your list but you can create a custom spawnlist to keep all the desired models in one place for easy adding to this list." )
 
 	language.Add( "tool.rat.ignoreSurfaceAngle", "Ignore surface angle" )
-	language.Add( "tool.rat.previewPosition", "Show position preview" )
+	language.Add( "tool.rat.previewPosition", "Show position previews" )
 	language.Add( "tool.rat.previewOffset", "Show random position offset" )
-	language.Add( "tool.rat.sphereRadius", "Sphere radius" )
+	language.Add( "tool.rat.sphereRadius", "Editing sphere radius" )
 
 	language.Add( "tool.rat.mdlAdd", "Add model by path" )
 	language.Add( "tool.rat.mdlAddButton", "Add to list from path" )
 	language.Add( "tool.rat.mdlClearButton", "Clear model list" )
 
 	language.Add( "tool.rat.numOfObjects", "Number of objects: " )
-	language.Add( "tool.rat.copiesIn", "Copies in " )
+	language.Add( "tool.rat.numberIn", "Number in " )
 
-	language.Add( "tool.rat.spawnTransforms", "Spawn transforms" )
-	language.Add( "tool.rat.spacing", "Spacing" )
-	language.Add( "tool.rat.spacingDescription", "Space between each array point." .. string.char(10) .. "Click text to reset!" )
-	language.Add( "tool.rat.rotation", "Rotation" )
-	language.Add( "tool.rat.rotationDescription", "Rotation of all array points." .. string.char(10) .. "Click text to reset!" )
+	language.Add( "tool.rat.pointTransforms", "Array point transforms" )
+	language.Add( "tool.rat.pointSpacing", "Spacing" )
+	language.Add( "tool.rat.pointSpacingDescription", "Space between each array point." .. string.char(10) .. "Click text to reset!" )
+	language.Add( "tool.rat.pointRotation", "Rotation" )
+	language.Add( "tool.rat.pointRotationDescription", "Rotation of all array points." .. string.char(10) .. "Click text to reset!" )
 
-	language.Add( "tool.rat.arrayOffsets", "Array offsets" )
+	language.Add( "tool.rat.arrayTransforms", "Array origin transforms" )
 	language.Add( "tool.rat.arrayOffset", "Offset" )
-	language.Add( "tool.rat.arrayOffsetDescription", "Position offset for the whole array." .. string.char(10) .. "Click text to reset!" )
+	language.Add( "tool.rat.arrayOffsetDescription", "Position offset of the array origin." .. string.char(10) .. "Click text to reset!" )
 	language.Add( "tool.rat.arrayRotation", "Rotation" )
-	language.Add( "tool.rat.arrayRotationDescription", "Rotation for the whole array." .. string.char(10) .. "Click text to reset!" )
+	language.Add( "tool.rat.arrayRotationDescription", "Rotation of the array origin." .. string.char(10) .. "Click text to reset!" )
 
-	language.Add( "tool.rat.randomSpawnOffsets", "Random spawn offsets" )
-	language.Add( "tool.rat.randomSpacing", "Random offset" )
-	language.Add( "tool.rat.randomSpacingDescription", "Random additional position offset per array point." .. string.char(10) .. "Click text to reset!" )
-	language.Add( "tool.rat.randomRotation", "Random rotation" )
-	language.Add( "tool.rat.randomRotationDescription", "Random additional rotation per array point." .. string.char(10) .. "Click text to reset!" )
-	language.Add( "tool.rat.randomRotationStepped", "Random stepped rotation" )
-	language.Add( "tool.rat.randomRotationSteppedDescription", "Random additional stepped rotation per array point." .. string.char(10) ..
-	"If you use 180 degrees for example it will face one of two ways." .. string.char(10) .. "Click text to reset!" )
+	language.Add( "tool.rat.randomPointTransforms", "Randomized array point transforms" )
+	language.Add( "tool.rat.randomPointSpacing", "Random offset" )
+	language.Add( "tool.rat.randomPointSpacingDescription", "Random position offset per array point." .. string.char(10) .. "Click text to reset!" )
+	language.Add( "tool.rat.randomPointRotation", "Random rotation" )
+	language.Add( "tool.rat.randomPointRotationDescription", "Random rotation offset per array point." .. string.char(10) .. "Click text to reset!" )
+	language.Add( "tool.rat.randomPointRotationStepped", "Random stepped rotation" )
+	language.Add( "tool.rat.randomRotationSteppedDescription", "Random stepped rotation offset per array point." .. string.char(10) ..
+	"If you use 90 degrees for example, each point will be rotated any of 0, 90, 180 or 270 degrees." .. string.char(10) .. "Click text to reset!" )
 
 	language.Add( "tool.rat.xAxis", "X axis" )
 	language.Add( "tool.rat.yAxis", "Y axis" )
 	language.Add( "tool.rat.zAxis", "Z axis" )
 
-	language.Add( "tool.rat.undo", "Undone random array" )
+	language.Add( "tool.rat.undo", "Undone Random Array" )
 	language.Add( "Cleanup_rat_arrays", "Random Arrays" )
 	language.Add( "Cleaned_rat_arrays", "Cleaned up all Random Arrays" )
 end
@@ -310,7 +310,7 @@ function TOOL:RandomizeEntityModel( entity )
 	end
 
 	-- Randomize body groups
-	if ( tobool( self:GetClientNumber( "randomBG" ) ) && entity:GetNumBodyGroups() != nil ) then
+	if ( tobool( self:GetClientNumber( "randomBodygroup" ) ) && entity:GetNumBodyGroups() != nil ) then
 		for i = 0, entity:GetNumBodyGroups() do
 			if ( i <= self:GetClientNumber( "randomSkip" ) ) then continue end
 			entity:SetBodygroup( i, math.random( 0, entity:GetBodygroupCount( i ) - 1 ) )
@@ -681,7 +681,7 @@ function TOOL.BuildCPanel( cpanel )
 	cpanel:CheckBox( "#tool.rat.freezeRootBoneOnly", "rat_freezeRootBoneOnly" )
 	cpanel:CheckBox( "#tool.rat.randomColor", "rat_randomColor" )
 	cpanel:CheckBox( "#tool.rat.randomSkin", "rat_randomSkin" )
-	cpanel:CheckBox( "#tool.rat.randomBG", "rat_randomBG" )
+	cpanel:CheckBox( "#tool.rat.randomBodygroup", "rat_randomBodygroup" )
 
 	-- cpanel:ControlHelp( "" )
 	-- cpanel:ControlHelp( "#tool.rat.randomSkipdesc" )
@@ -891,7 +891,7 @@ function TOOL.BuildCPanel( cpanel )
 	end
 
 	local label = vgui.Create( "DLabel", control )
-	label:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.copiesIn" ) .. language.GetPhrase( "#tool.rat.xAxis" ) )
+	label:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.xAxis" ) )
 	label:SetDark( true )
 	-- label:DockMargin( 0, 10, 0, 0 )
 	label:Dock( TOP )
@@ -909,7 +909,7 @@ function TOOL.BuildCPanel( cpanel )
 	end
 
 	local label = vgui.Create( "DLabel", control )
-	label:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.copiesIn" ) .. language.GetPhrase( "#tool.rat.yAxis" ) )
+	label:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.yAxis" ) )
 	label:SetDark( true )
 	label:DockMargin( 0, 5, 0, 0 )
 	label:Dock( TOP )
@@ -927,7 +927,7 @@ function TOOL.BuildCPanel( cpanel )
 	end
 
 	local label = vgui.Create( "DLabel", control )
-	label:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.copiesIn" ) .. language.GetPhrase( "#tool.rat.zAxis" ) )
+	label:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.zAxis" ) )
 	label:SetDark( true )
 	label:DockMargin( 0, 5, 0, 0 )
 	label:Dock( TOP )
@@ -935,12 +935,12 @@ function TOOL.BuildCPanel( cpanel )
 
 	--[[----------------------------------------------------------------]] --SPAWN TRANSFORMS
 	local DCollapsible = vgui.Create( "DCollapsibleCategory" )
-	DCollapsible:SetLabel( "#tool.rat.spawnTransforms" )
+	DCollapsible:SetLabel( "#tool.rat.pointTransforms" )
 	function DCollapsible:OnToggle( val )
-		GetConVar( "rat_spawnTransformExpanded" ):SetInt( val && 1 || 0 ) -- 1 if val is true, 0 if false
+		GetConVar( "rat_pointTransformExpanded" ):SetInt( val && 1 || 0 ) -- 1 if val is true, 0 if false
 	end
-	if ( GetConVar( "rat_spawnTransformExpanded" ) != nil ) then
-		DCollapsible:SetExpanded( GetConVar( "rat_spawnTransformExpanded" ):GetInt() )
+	if ( GetConVar( "rat_pointTransformExpanded" ) != nil ) then
+		DCollapsible:SetExpanded( GetConVar( "rat_pointTransformExpanded" ):GetInt() )
 	end
 	cpanel:AddItem( DCollapsible )
 
@@ -955,23 +955,23 @@ function TOOL.BuildCPanel( cpanel )
 	DCollapsible:SetContents( DermaList )
 
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.spacing", "#tool.rat.spacingDescription", -1000, 1000,
+	MakeAxisSliderGroup( DermaList, "#tool.rat.pointSpacing", "#tool.rat.pointSpacingDescription", -1000, 1000,
 	"rat_xOffsetBase", "rat_yOffsetBase", "rat_zOffsetBase" )
 
 	MakeText( DermaList, Color( 50, 50, 50 ), "" )
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.rotation", "#tool.rat.rotationDescription", -180, 180,
+	MakeAxisSliderGroup( DermaList, "#tool.rat.pointRotation", "#tool.rat.pointRotationDescription", -180, 180,
 	"rat_xRotationBase", "rat_yRotationBase", "rat_zRotationBase" )
 
 
 	--[[----------------------------------------------------------------]] --ARRAY OFFSETS
 	local DCollapsible = vgui.Create( "DCollapsibleCategory" )
-	DCollapsible:SetLabel( "#tool.rat.arrayOffsets" )
+	DCollapsible:SetLabel( "#tool.rat.arrayTransforms" )
 	function DCollapsible:OnToggle( val )
-		GetConVar( "rat_arrayOffsetsExpanded" ):SetInt( val && 1 || 0 ) -- 1 if val is true, 0 if false
+		GetConVar( "rat_arrayTransformsExpanded" ):SetInt( val && 1 || 0 ) -- 1 if val is true, 0 if false
 	end
-	if ( GetConVar( "rat_arrayOffsetsExpanded" ) != nil ) then
-		DCollapsible:SetExpanded( GetConVar( "rat_arrayOffsetsExpanded" ):GetInt() )
+	if ( GetConVar( "rat_arrayTransformsExpanded" ) != nil ) then
+		DCollapsible:SetExpanded( GetConVar( "rat_arrayTransformsExpanded" ):GetInt() )
 	end
 	cpanel:AddItem( DCollapsible )
 
@@ -997,12 +997,12 @@ function TOOL.BuildCPanel( cpanel )
 
 	--[[----------------------------------------------------------------]] --RANDOM SPAWN OFFSETS
 	local DCollapsible = vgui.Create( "DCollapsibleCategory" )
-	DCollapsible:SetLabel( "#tool.rat.randomSpawnOffsets" )
+	DCollapsible:SetLabel( "#tool.rat.randomPointTransforms" )
 	function DCollapsible:OnToggle( val )
-		GetConVar( "rat_randomSpawnOffsetsExpanded" ):SetInt( val && 1 || 0 ) -- 1 if val is true, 0 if false
+		GetConVar( "rat_randomPointTransformsExpanded" ):SetInt( val && 1 || 0 ) -- 1 if val is true, 0 if false
 	end
-	if ( GetConVar( "rat_randomSpawnOffsetsExpanded" ) != nil ) then
-		DCollapsible:SetExpanded( GetConVar( "rat_randomSpawnOffsetsExpanded" ):GetInt() )
+	if ( GetConVar( "rat_randomPointTransformsExpanded" ) != nil ) then
+		DCollapsible:SetExpanded( GetConVar( "rat_randomPointTransformsExpanded" ):GetInt() )
 	end
 	cpanel:AddItem( DCollapsible )
 
@@ -1017,17 +1017,17 @@ function TOOL.BuildCPanel( cpanel )
 	DCollapsible:SetContents( DermaList )
 
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.randomSpacing", "#tool.rat.randomSpacingDescription", 0, 1000,
+	MakeAxisSliderGroup( DermaList, "#tool.rat.randomPointSpacing", "#tool.rat.randomPointSpacingDescription", 0, 1000,
 	"rat_xOffsetRandom", "rat_yOffsetRandom", "rat_zOffsetRandom" )
 
 	MakeText( DermaList, Color( 50, 50, 50 ), "" )
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.randomRotation", "#tool.rat.randomRotationDescription", 0, 180,
+	MakeAxisSliderGroup( DermaList, "#tool.rat.randomPointRotation", "#tool.rat.randomPointRotationDescription", 0, 180,
 	"rat_xRotationRandom", "rat_yRotationRandom", "rat_zRotationRandom" )
 
 	MakeText( DermaList, Color( 50, 50, 50 ), "" )
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.randomRotationStepped", "#tool.rat.randomRotationSteppedDescription", 0, 180,
+	MakeAxisSliderGroup( DermaList, "#tool.rat.randomPointRotationStepped", "#tool.rat.randomRotationSteppedDescription", 0, 180,
 	"rat_xRotationRandomStepped", "rat_yRotationRandomStepped", "rat_zRotationRandomStepped" )
 
 

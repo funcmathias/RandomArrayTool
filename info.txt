@@ -11,6 +11,8 @@
 		"random",
 		"array",
 		"tool",
+		"spawn",
+		"prop",
 		"bodygroup",
 		"skin",
 		"grid"
