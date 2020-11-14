@@ -648,6 +648,26 @@ local function MakeCheckbox( panel, titleString, convar, convarEnabledState )
 
 end
 
+local function MakeNumberWang( panel, titleString, convar, min, max, leftSpacing, topSpacing )
+	local control = vgui.Create( "DSizeToContents" )
+	control:Dock( TOP )
+	control:DockPadding( leftSpacing, topSpacing, 5, 0 )
+	panel:AddItem( control )
+
+	local numbox = vgui.Create( "DNumberWang", control )
+	numbox:SetSize( 40, 20 )
+	numbox:SetMinMax( min, max )
+	numbox:Dock( LEFT )
+	numbox:DockMargin( 0, 0, 0, 1 )
+	numbox:SetConVar( convar )
+	numbox:SetValue( cvars.Number( convar ) )
+
+	local label = vgui.Create( "DLabel", control )
+	label:SetText( stringSpacing .. language.GetPhrase( titleString ) )
+	label:SetDark( true )
+	label:Dock( TOP )
+end
+
 local function MakeAxisSlider( panel, color, titleString, min, max, conVar )
 	local DermaNumSlider = vgui.Create( "DNumSlider" )
 	DermaNumSlider:SetText( stringSpacing .. language.GetPhrase( titleString ) )
@@ -705,21 +725,22 @@ local function ChangeAndColorModelCount( panel )
 	end
 end
 
--- Delete this later
-function TOOL:UpdateControlPanel( index )
+-- Debug tool ui rebuild
+function TOOL:RebuildCPanel()
 	local panel = controlpanel.Get( "rat" )
-	if ( !panel ) then MsgN( "No panel found for Random Array Tool!" ) return end
+	if ( !panel ) then MsgN( "Rat panel not found." ) return end
 
 	modelPathTable = {}
 	updateServerTables()
 
-	panel:ClearControls()
+	-- May not be needed now that the callbacks have identifiers which means they'll override the old ones, but keeping it just in case
 	cvars.RemoveChangeCallback("rat_xAmount", "rat_xAmount_callback")
 	cvars.RemoveChangeCallback("rat_yAmount", "rat_yAmount_callback")
 	cvars.RemoveChangeCallback("rat_zAmount", "rat_zAmount_callback")
 	cvars.RemoveChangeCallback("rat_ignoreSurfaceAngle", "rat_ignoreSurfaceAngle_callback")
+
+	panel:Clear()
 	self.BuildCPanel( panel )
-	updateServerTables()
 end
 
 function TOOL.BuildCPanel( cpanel )
@@ -731,48 +752,10 @@ function TOOL.BuildCPanel( cpanel )
 	MakeCheckbox( cpanel, "#tool.rat.randomSkin", "rat_randomSkin" )
 	MakeCheckbox( cpanel, "#tool.rat.randomBodygroup", "rat_randomBodygroup" )
 
-	-- cpanel:ControlHelp( "" )
-	-- cpanel:ControlHelp( "#tool.rat.randomSkipdesc" )
-
-	local control = vgui.Create( "DSizeToContents" )
-	control:Dock( TOP )
-	control:DockPadding( 5, 5, 5, 0 )
-	cpanel:AddItem( control )
-
-	local textbox = vgui.Create( "DNumberWang", control )
-	textbox:SetSize( 40, 20 )
-	textbox:SetConVar( "rat_randomSkip" )
-	if ( GetConVar( "rat_randomSkip" ) != nil ) then -- Dumb hack to make DNumberWang read the value when first built, don't know why only they don't
-		textbox:SetValue( GetConVar( "rat_randomSkip" ):GetFloat() )
-	end
-	textbox:Dock( LEFT )
-
-	local label = vgui.Create( "DLabel", control )
-	label:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.randomSkip" ) )
-	label:SetDark( true )
-	label:Dock( TOP )
-
 	cpanel:ControlHelp( "" )
 
-	local control = vgui.Create( "DSizeToContents" )
-	control:Dock( TOP )
-	control:DockPadding( 5, 5, 5, 0 )
-	cpanel:AddItem( control )
-
-	local textbox = vgui.Create( "DNumberWang", control )
-	textbox:SetSize( 40, 20 )
-	textbox:SetMax( 100 )
-	textbox:SetDecimals( 2 )
-	textbox:SetConVar( "rat_spawnChance" )
-	if ( GetConVar( "rat_spawnChance" ) != nil ) then -- Dumb hack to make DNumberWang read the value when first built, don't know why only they don't
-		textbox:SetValue( GetConVar( "rat_spawnChance" ):GetFloat() )
-	end
-	textbox:Dock( LEFT )
-
-	local label = vgui.Create( "DLabel", control )
-	label:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.spawnChance" ) )
-	label:SetDark( true )
-	label:Dock( TOP )
+	MakeNumberWang( cpanel, "#tool.rat.randomSkip", "rat_randomSkip", 0, 100, 0, 0 )
+	MakeNumberWang( cpanel, "#tool.rat.spawnChance", "rat_spawnChance", 0, 100, 0, 0 )
 
 	cpanel:ControlHelp( "" )
 
@@ -871,24 +854,7 @@ function TOOL.BuildCPanel( cpanel )
 	MakeCheckbox( cpanel, "#tool.rat.previewPosition", "rat_previewAxis" )
 	MakeCheckbox( cpanel, "#tool.rat.previewOffset", "rat_previewBox" )
 
-	local control = vgui.Create( "DSizeToContents" )
-	control:Dock( TOP )
-	control:DockPadding( 5, 5, 5, 0 )
-	cpanel:AddItem( control )
-
-	local textbox = vgui.Create( "DNumberWang", control )
-	textbox:SetSize( 40, 20 )
-	textbox:SetMax( 9999 )
-	textbox:SetConVar( "rat_sphereRadius" )
-	if ( GetConVar( "rat_sphereRadius" ) != nil ) then -- Dumb hack to make DNumberWang read the value when first built, don't know why only they don't
-		textbox:SetValue( GetConVar( "rat_sphereRadius" ):GetFloat() )
-	end
-	textbox:Dock( LEFT )
-
-	local label = vgui.Create( "DLabel", control )
-	label:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.sphereRadius" ) )
-	label:SetDark( true )
-	label:Dock( TOP )
+	MakeNumberWang( cpanel, "#tool.rat.sphereRadius", "rat_sphereRadius", 0, 9999, 0, 0 )
 
 	--[[----------------------------------------------------------------]] --Model Counter
 	local NumberOfModelsText = vgui.Create( "DLabel" )
@@ -917,69 +883,20 @@ function TOOL.BuildCPanel( cpanel )
 	end, "rat_zAmount_callback")
 
 
-	local control = vgui.Create( "DSizeToContents" ) ----
+	local control = vgui.Create( "DPanelList" ) ----
 	control:Dock( TOP )
-	control:DockPadding( 50, 10, 0, 10 )
 	control:DockMargin( 0, -10, 0, 0 )
+	control:SetAutoSize( true )
+	control:SetPadding( 4 )
 	control.Paint = function()
 		surface.SetDrawColor( 230, 230, 230, 255 )
 		surface.DrawRect( 0, 0, 200, 200 )
 	end
 	cpanel:AddItem( control )
 
-
-	----------------------------------------------------
-	local numbox = vgui.Create( "DNumberWang", control )
-	numbox:SetSize( 40, 20 )
-	numbox:SetPos( 10, 10 )
-	numbox:SetValue( 1 )
-	numbox:SetMinMax( 1, 999 )
-	numbox:SetConVar( "rat_xAmount" )
-	if ( GetConVar( "rat_xAmount" ) != nil ) then -- Dumb hack to make DNumberWang read the value when first built, don't know why only they don't
-		numbox:SetValue( GetConVar( "rat_xAmount" ):GetInt() )
-	end
-
-	local label = vgui.Create( "DLabel", control )
-	label:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.xAxis" ) )
-	label:SetDark( true )
-	-- label:DockMargin( 0, 10, 0, 0 )
-	label:Dock( TOP )
-
-
-	----------------------------------------------------
-	local numbox = vgui.Create( "DNumberWang", control )
-	numbox:SetSize( 40, 20 )
-	numbox:SetPos( 10, 35 )
-	numbox:SetValue( 1 )
-	numbox:SetMinMax( 1, 999 )
-	numbox:SetConVar( "rat_yAmount" )
-	if ( GetConVar( "rat_yAmount" ) != nil ) then -- Dumb hack to make DNumberWang read the value when first built, don't know why only they don't
-		numbox:SetValue( GetConVar( "rat_yAmount" ):GetInt() )
-	end
-
-	local label = vgui.Create( "DLabel", control )
-	label:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.yAxis" ) )
-	label:SetDark( true )
-	label:DockMargin( 0, 5, 0, 0 )
-	label:Dock( TOP )
-
-
-	----------------------------------------------------
-	local numbox = vgui.Create( "DNumberWang", control )
-	numbox:SetSize( 40, 20 )
-	numbox:SetPos( 10, 60 )
-	numbox:SetValue( 1 )
-	numbox:SetMinMax( 1, 999 )
-	numbox:SetConVar( "rat_zAmount" )
-	if ( GetConVar( "rat_zAmount" ) != nil ) then -- Dumb hack to make DNumberWang read the value when first built, don't know why only they don't
-		numbox:SetValue( GetConVar( "rat_zAmount" ):GetInt() )
-	end
-
-	local label = vgui.Create( "DLabel", control )
-	label:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.zAxis" ) )
-	label:SetDark( true )
-	label:DockMargin( 0, 5, 0, 0 )
-	label:Dock( TOP )
+	MakeNumberWang( control, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.xAxis" ), "rat_xAmount", 1, 999, 10, 10 )
+	MakeNumberWang( control, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.yAxis" ), "rat_yAmount", 1, 999, 10, 5 )
+	MakeNumberWang( control, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.zAxis" ), "rat_zAmount", 1, 999, 10, 5 )
 
 
 	--[[----------------------------------------------------------------]] --SPAWN TRANSFORMS
