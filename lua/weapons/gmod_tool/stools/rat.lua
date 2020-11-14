@@ -648,23 +648,24 @@ local function MakeCheckbox( panel, titleString, convar, convarEnabledState )
 
 end
 
-local function MakeNumberWang( panel, titleString, convar, min, max, leftSpacing, topSpacing )
-	local control = vgui.Create( "DSizeToContents" )
+local function MakeNumberWang( panel, titleString, convar, min, max, leftSpacing )
+	local control = vgui.Create( "DPanelList" )
 	control:Dock( TOP )
-	control:DockPadding( leftSpacing, topSpacing, 5, 0 )
+	control:DockPadding( leftSpacing, 0, 0, 0 )
 	panel:AddItem( control )
 
 	local numbox = vgui.Create( "DNumberWang", control )
 	numbox:SetSize( 40, 20 )
+	numbox:SetPos( leftSpacing, 0 )
 	numbox:SetMinMax( min, max )
-	numbox:Dock( LEFT )
-	numbox:DockMargin( 0, 0, 0, 1 )
+	numbox:Dock( NODOCK )
 	numbox:SetConVar( convar )
 	numbox:SetValue( cvars.Number( convar ) )
 
 	local label = vgui.Create( "DLabel", control )
-	label:SetText( stringSpacing .. language.GetPhrase( titleString ) )
+	label:SetText( titleString )
 	label:SetDark( true )
+	label:DockMargin( 50, 0, 0, 0 )
 	label:Dock( TOP )
 end
 
@@ -769,8 +770,8 @@ function TOOL.BuildCPanel( cpanel )
 
 	cpanel:ControlHelp( "" )
 
-	MakeNumberWang( cpanel, "#tool.rat.randomSkip", "rat_randomSkip", 0, 100, 0, 0 )
-	MakeNumberWang( cpanel, "#tool.rat.spawnChance", "rat_spawnChance", 0, 100, 0, 0 )
+	MakeNumberWang( cpanel, "#tool.rat.randomSkip", "rat_randomSkip", 0, 100, 0 )
+	MakeNumberWang( cpanel, "#tool.rat.spawnChance", "rat_spawnChance", 0, 100, 0 )
 
 	cpanel:ControlHelp( "" )
 
@@ -869,7 +870,7 @@ function TOOL.BuildCPanel( cpanel )
 	MakeCheckbox( cpanel, "#tool.rat.previewPosition", "rat_previewAxis" )
 	MakeCheckbox( cpanel, "#tool.rat.previewOffset", "rat_previewBox" )
 
-	MakeNumberWang( cpanel, "#tool.rat.sphereRadius", "rat_sphereRadius", 0, 9999, 0, 0 )
+	MakeNumberWang( cpanel, "#tool.rat.sphereRadius", "rat_sphereRadius", 0, 9999, 0 )
 
 	--[[----------------------------------------------------------------]] --Model Counter
 	local NumberOfModelsText = vgui.Create( "DLabel" )
@@ -897,9 +898,17 @@ function TOOL.BuildCPanel( cpanel )
 		ChangeAndColorModelCount( NumberOfModelsText )
 	end, "rat_zAmount_callback")
 
+	-- Only way I managed to get spacing on the top in this configuration was to make a spacer object sadly
+	local control = vgui.Create( "DPanelList" ) ----
+	control:DockMargin( 0, -10, 0, 0 )
+	control:SetHeight( 10 )
+	control.Paint = function()
+		surface.SetDrawColor( 230, 230, 230, 255 )
+		surface.DrawRect( 0, 0, 200, 200 )
+	end
+	cpanel:AddItem( control )
 
 	local control = vgui.Create( "DPanelList" ) ----
-	control:Dock( TOP )
 	control:DockMargin( 0, -10, 0, 0 )
 	control:SetAutoSize( true )
 	control:SetPadding( 4 )
@@ -909,9 +918,9 @@ function TOOL.BuildCPanel( cpanel )
 	end
 	cpanel:AddItem( control )
 
-	MakeNumberWang( control, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.xAxis" ), "rat_xAmount", 1, 999, 10, 10 )
-	MakeNumberWang( control, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.yAxis" ), "rat_yAmount", 1, 999, 10, 5 )
-	MakeNumberWang( control, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.zAxis" ), "rat_zAmount", 1, 999, 10, 5 )
+	MakeNumberWang( control, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.xAxis" ), "rat_xAmount", 1, 999, 10 )
+	MakeNumberWang( control, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.yAxis" ), "rat_yAmount", 1, 999, 10 )
+	MakeNumberWang( control, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.zAxis" ), "rat_zAmount", 1, 999, 10 )
 
 
 	--[[----------------------------------------------------------------]] --SPAWN TRANSFORMS
