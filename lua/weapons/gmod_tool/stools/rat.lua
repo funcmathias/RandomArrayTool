@@ -137,7 +137,7 @@ if CLIENT then
 	language.Add( "Cleaned_rat_arrays", "Cleaned up all Random Arrays" )
 end
 
-if (SERVER) then
+if SERVER then
 	-- Register the Network String
 	util.AddNetworkString( "sendTables" )
 
@@ -725,6 +725,19 @@ local function ChangeAndColorModelCount( panel )
 	end
 end
 
+if CLIENT then
+	concommand.Add("rat_rebuildCPanel", function( ply, cmd, args )
+		if ply:GetTool() then
+			for i, toolData in pairs( ply:GetTool() ) do
+				-- Checking if the current tool has the word rat in the tool table so it won't try to run the function when another tool is active
+				if ( toolData == "rat" ) then
+					ply:GetTool():RebuildCPanel()
+				end
+			end
+		end
+	end)
+end
+
 -- Debug tool ui rebuild
 function TOOL:RebuildCPanel()
 	local panel = controlpanel.Get( "rat" )
@@ -741,6 +754,8 @@ function TOOL:RebuildCPanel()
 
 	panel:Clear()
 	self.BuildCPanel( panel )
+
+	print("Rebuilt rat panel")
 end
 
 function TOOL.BuildCPanel( cpanel )
@@ -1011,11 +1026,11 @@ function TOOL.BuildCPanel( cpanel )
 
 
 
+	-- Debug buttons
 	local CheckButton = vgui.Create( "DButton" )
 	CheckButton:SetText( "Check List" )
 	CheckButton.DoClick = function()
-		if LocalPlayer():GetTool() && LocalPlayer():GetTool().CheckList then
-			print( "passed check" )
+		if LocalPlayer():GetTool() then
 			LocalPlayer():GetTool():CheckList()
 		end
 	end
@@ -1024,9 +1039,8 @@ function TOOL.BuildCPanel( cpanel )
 	local UpdateButton = vgui.Create( "DButton" )
 	UpdateButton:SetText( "Update Control Panel" )
 	UpdateButton.DoClick = function()
-		if LocalPlayer():GetTool() && LocalPlayer():GetTool().UpdateControlPanel then
-			print( "passed check" )
-			LocalPlayer():GetTool():UpdateControlPanel()
+		if LocalPlayer():GetTool() then
+			LocalPlayer():GetTool():RebuildCPanel()
 		end
 	end
 	cpanel:AddItem( UpdateButton )
