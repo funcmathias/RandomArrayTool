@@ -20,6 +20,7 @@ TOOL.ClientConVar["randomSkip"] = "0"
 TOOL.ClientConVar["spawnChance"] = "100"
 
 TOOL.ClientConVar["ignoreSurfaceAngle"] = "0"
+TOOL.ClientConVar["facePlayerZ"] = "0"
 TOOL.ClientConVar["previewAxis"] = "1"
 TOOL.ClientConVar["previewBox"] = "1"
 TOOL.ClientConVar["sphereRadius"] = "0"
@@ -94,6 +95,7 @@ if CLIENT then
 	language.Add( "tool.rat.listHelp6", "- Tip: There is no option for saving your list but you can create a custom spawnlist to keep all the desired models in one place for easy adding to this list." )
 
 	language.Add( "tool.rat.ignoreSurfaceAngle", "Ignore surface angle" )
+	language.Add( "tool.rat.facePlayerZ", "Face player on Z axis" )
 	language.Add( "tool.rat.previewPosition", "Show position previews" )
 	language.Add( "tool.rat.previewOffset", "Show random position offset" )
 	language.Add( "tool.rat.sphereRadius", "Editing sphere radius" )
@@ -222,15 +224,20 @@ function TOOL:ModifyTransformArray( trace, transformArray ) -- Calculates the po
 	local zArrayRotation = self:GetClientNumber( "zArrayRotation" )
 
 	local ignoreSurfaceAngle = self:GetClientNumber( "ignoreSurfaceAngle" )
+	local facePlayerZ = self:GetClientNumber( "facePlayerZ" )
 
 	-- Correct the hit angle
 	local correctedHitAngle = trace.HitNormal:Angle()
 	correctedHitAngle.x = correctedHitAngle.x + 90
 	local tempAngle = correctedHitAngle
 
-	-- Ignore surface angle and set it do a default angle
+	-- Ignore surface angle and set it do a default world angle, or face player on z axis
 	if ( tobool( ignoreSurfaceAngle ) ) then
-		tempAngle = Angle()
+		if ( tobool( facePlayerZ ) ) then
+			tempAngle = Angle( 0, self:GetOwner():EyeAngles().Y, 0 )
+		else
+			tempAngle = Angle()
+		end
 	end
 
 	-- Angle for the array
@@ -601,9 +608,49 @@ local function MakeText( panel, color, str )
 	return Text
 end
 
-local function MakeAxisSlider( panel, color, str, min, max, conVar )
+local function MakeCheckbox( panel, titleString, convar, convarEnabledState )
+	local enabledState = true
+
+	if ( convarEnabledState != nil ) then
+		enabledState = cvars.Bool( convarEnabledState )
+	end
+
+	local control = vgui.Create( "DSizeToContents" )
+	control:DockPadding( 0, -2, 0, -2 )
+	control:Dock( TOP )
+	panel:AddItem( control )
+
+	local checkBox = vgui.Create( "DCheckBox", control )
+	checkBox:DockMargin( 0, 3, 0, 2 )
+	checkBox:SetConVar( convar )
+	checkBox:SetEnabled( enabledState )
+	checkBox:Dock( LEFT )
+
+	local label = vgui.Create( "DLabel", control )
+	label:SetText( stringSpacing .. language.GetPhrase( titleString ) )
+	label:SetDark( enabledState )
+	label:SetEnabled( enabledState )
+	label:Dock( TOP )
+	label:SetMouseInputEnabled( true )
+	function label:DoClick()
+		GetConVar( convar ):SetBool( !cvars.Bool( convar ) )
+	end
+
+	-- Callback to enable/disable the checkbox and label when the specified convar is changed
+	if ( convarEnabledState != nil ) then
+		cvars.AddChangeCallback( convarEnabledState, function( convarName, valueOld, valueNew )
+			local cvar = cvars.Bool( convarName )
+			checkBox:SetEnabled( cvar )
+			label:SetEnabled( cvar )
+			label:SetDark( cvar )
+		end, convarEnabledState .. "_callback")
+	end
+
+end
+
+local function MakeAxisSlider( panel, color, titleString, min, max, conVar )
 	local DermaNumSlider = vgui.Create( "DNumSlider" )
-	DermaNumSlider:SetText( stringSpacing .. language.GetPhrase( str ) )
+	DermaNumSlider:SetText( stringSpacing .. language.GetPhrase( titleString ) )
 	DermaNumSlider:SetMinMax( min, max )
 	DermaNumSlider:SetTall( 15 )
 	DermaNumSlider:SetDecimals( 0 )
@@ -670,6 +717,7 @@ function TOOL:UpdateControlPanel( index )
 	cvars.RemoveChangeCallback("rat_xAmount", "rat_xAmount_callback")
 	cvars.RemoveChangeCallback("rat_yAmount", "rat_yAmount_callback")
 	cvars.RemoveChangeCallback("rat_zAmount", "rat_zAmount_callback")
+	cvars.RemoveChangeCallback("rat_ignoreSurfaceAngle", "rat_ignoreSurfaceAngle_callback")
 	self.BuildCPanel( panel )
 	updateServerTables()
 end
@@ -677,11 +725,11 @@ end
 function TOOL.BuildCPanel( cpanel )
 	MakeText( cpanel, Color( 50, 50, 50 ), "#tool.rat.desc" )
 
-	cpanel:CheckBox( "#tool.rat.spawnFrozen", "rat_spawnFrozen" )
-	cpanel:CheckBox( "#tool.rat.freezeRootBoneOnly", "rat_freezeRootBoneOnly" )
-	cpanel:CheckBox( "#tool.rat.randomColor", "rat_randomColor" )
-	cpanel:CheckBox( "#tool.rat.randomSkin", "rat_randomSkin" )
-	cpanel:CheckBox( "#tool.rat.randomBodygroup", "rat_randomBodygroup" )
+	MakeCheckbox( cpanel, "#tool.rat.spawnFrozen", "rat_spawnFrozen" )
+	MakeCheckbox( cpanel, "#tool.rat.freezeRootBoneOnly", "rat_freezeRootBoneOnly" )
+	MakeCheckbox( cpanel, "#tool.rat.randomColor", "rat_randomColor" )
+	MakeCheckbox( cpanel, "#tool.rat.randomSkin", "rat_randomSkin" )
+	MakeCheckbox( cpanel, "#tool.rat.randomBodygroup", "rat_randomBodygroup" )
 
 	-- cpanel:ControlHelp( "" )
 	-- cpanel:ControlHelp( "#tool.rat.randomSkipdesc" )
@@ -818,9 +866,10 @@ function TOOL.BuildCPanel( cpanel )
 
 
 	--[[----------------------------------------------------------------]] --Array visualization options
-	cpanel:CheckBox( "#tool.rat.ignoreSurfaceAngle", "rat_ignoreSurfaceAngle" )
-	cpanel:CheckBox( "#tool.rat.previewPosition", "rat_previewAxis" )
-	cpanel:CheckBox( "#tool.rat.previewOffset", "rat_previewBox" )
+	MakeCheckbox( cpanel, "#tool.rat.ignoreSurfaceAngle", "rat_ignoreSurfaceAngle" )
+	MakeCheckbox( cpanel, "#tool.rat.facePlayerZ", "rat_facePlayerZ", "rat_ignoreSurfaceAngle" )
+	MakeCheckbox( cpanel, "#tool.rat.previewPosition", "rat_previewAxis" )
+	MakeCheckbox( cpanel, "#tool.rat.previewOffset", "rat_previewBox" )
 
 	local control = vgui.Create( "DSizeToContents" )
 	control:Dock( TOP )
