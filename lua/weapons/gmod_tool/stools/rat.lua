@@ -22,7 +22,7 @@ TOOL.ClientConVar["spawnChance"] = "100"
 TOOL.ClientConVar["ignoreSurfaceAngle"] = "0"
 TOOL.ClientConVar["facePlayerZ"] = "0"
 TOOL.ClientConVar["previewAxis"] = "1"
-TOOL.ClientConVar["previewBox"] = "1"
+TOOL.ClientConVar["previewBox"] = "0"
 TOOL.ClientConVar["pushAwayFromSurface"] = "0"
 TOOL.ClientConVar["sphereRadius"] = "0"
 
@@ -34,8 +34,8 @@ TOOL.ClientConVar["arrayTransformsExpanded"] = "0"
 TOOL.ClientConVar["randomPointTransformsExpanded"] = "0"
 
 -- X axis ConVars
-TOOL.ClientConVar["xAmount"] = "1"
-TOOL.ClientConVar["xOffsetBase"] = "0"
+TOOL.ClientConVar["xAmount"] = "3"
+TOOL.ClientConVar["xSpacingBase"] = "50"
 TOOL.ClientConVar["xOffsetRandom"] = "0"
 TOOL.ClientConVar["xArrayPivot"] = "0.50"
 TOOL.ClientConVar["xRotationBase"] = "0"
@@ -44,8 +44,8 @@ TOOL.ClientConVar["xRotationRandomStepped"] = "0"
 TOOL.ClientConVar["xArrayRotation"] = "0"
 
 -- Y axis ConVars
-TOOL.ClientConVar["yAmount"] = "1"
-TOOL.ClientConVar["yOffsetBase"] = "0"
+TOOL.ClientConVar["yAmount"] = "3"
+TOOL.ClientConVar["ySpacingBase"] = "50"
 TOOL.ClientConVar["yOffsetRandom"] = "0"
 TOOL.ClientConVar["yArrayPivot"] = "0.50"
 TOOL.ClientConVar["yRotationBase"] = "0"
@@ -54,8 +54,8 @@ TOOL.ClientConVar["yRotationRandomStepped"] = "0"
 TOOL.ClientConVar["yArrayRotation"] = "0"
 
 -- Z axis ConVars
-TOOL.ClientConVar["zAmount"] = "1"
-TOOL.ClientConVar["zOffsetBase"] = "0"
+TOOL.ClientConVar["zAmount"] = "2"
+TOOL.ClientConVar["zSpacingBase"] = "50"
 TOOL.ClientConVar["zOffsetRandom"] = "0"
 TOOL.ClientConVar["zArrayPivot"] = "0.00"
 TOOL.ClientConVar["zRotationBase"] = "0"
@@ -147,10 +147,9 @@ if SERVER then
 		local sid = player:SteamID()
 		modelPathTable[sid] = net.ReadTable()
 
-		print( "--- Model Path Table Start ---" )
-		PrintTable( modelPathTable )
-		print( "--- Model Path Table End ---" )
-
+		-- print( "--- Model Path Table Start ---" )
+		-- PrintTable( modelPathTable )
+		-- print( "--- Model Path Table End ---" )
 	end)
 end
 
@@ -160,9 +159,9 @@ function TOOL:CreateLocalTransformArray()
 	local yAmount = self:GetClientNumber( "yAmount" )
 	local zAmount = self:GetClientNumber( "zAmount" )
 
-	local xOffsetBase = self:GetClientNumber( "xOffsetBase" )
-	local yOffsetBase = self:GetClientNumber( "yOffsetBase" )
-	local zOffsetBase = self:GetClientNumber( "zOffsetBase" )
+	local xSpacingBase = self:GetClientNumber( "xSpacingBase" )
+	local ySpacingBase = self:GetClientNumber( "ySpacingBase" )
+	local zSpacingBase = self:GetClientNumber( "zSpacingBase" )
 
 
 	local tempTable = {}
@@ -170,17 +169,17 @@ function TOOL:CreateLocalTransformArray()
 
 	-- Calculate the array positions
 	for x = 0, xAmount - 1 do
-		tempTable[i] = Vector( xOffsetBase * x, 0, 0 )
+		tempTable[i] = Vector( xSpacingBase * x, 0, 0 )
 		i = i + 1
 
 		for y = 0, yAmount - 1 do
 			if (y != 0) then -- This for loop needs to skip the first cycle without affecting the next for loop
-				tempTable[i] = Vector( xOffsetBase * x, yOffsetBase * y, 0 )
+				tempTable[i] = Vector( xSpacingBase * x, ySpacingBase * y, 0 )
 				i = i + 1
 			end
 
 			for z = 1, zAmount - 1 do
-				tempTable[i] = Vector( xOffsetBase * x, yOffsetBase * y, zOffsetBase * z )
+				tempTable[i] = Vector( xSpacingBase * x, ySpacingBase * y, zSpacingBase * z )
 				i = i + 1
 			end
 		end
@@ -375,7 +374,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 		if ( util.IsValidRagdoll( modelPath ) ) then entityType = "prop_ragdoll" end
 
 		local entity = ents.Create( entityType )
-		print( modelPath .. " is le path for de modul" )
+		-- print( modelPath .. " is le path for de modul" )
 		entity:SetModel( modelPath ) -------------
 		entity:SetPos( trace.HitPos + transform )
 		entity:SetAngles( elementAngle )
@@ -413,10 +412,6 @@ end
 
 
 function TOOL:LeftClick( trace )
-	if ( CLIENT ) then
-		print( "Left got clicked" )
-	end
-
 	if ( SERVER ) then
 		local player = self:GetOwner()
 		local sid = player:SteamID()
@@ -475,21 +470,21 @@ end
 -- Checks if path is for a model or a folder, if a folder then it returns a table of models in that folder
 local function CheckModelPath( inputDirectory )
 	if string.find( inputDirectory, "%.mdl" ) then
-		print ( "The word .mdl was found in path: " .. inputDirectory )
+		-- print ( "The word .mdl was found in path: " .. inputDirectory )
 		local tempTable = { inputDirectory }
 		return tempTable
 	else
 		local tempMdlTable = {}
-		print( "==[LOADING " .. inputDirectory .. "]===========================================" )
+		-- print( "==[LOADING " .. inputDirectory .. "]===========================================" )
 		local fileList = file.Find( inputDirectory .. "/*.mdl", "GAME" )
-		PrintTable( fileList )
+		-- PrintTable( fileList )
 		for i, fileName in pairs( fileList ) do
 			local directory = inputDirectory .. "/" .. fileName
 			-- resource.AddFile( directory )
 			table.insert( tempMdlTable, directory )
-			print( "    >Loaded " .. directory )
+			-- print( "    >Loaded " .. directory )
 		end
-		print( "    >Loaded the directory " .. inputDirectory )
+		-- print( "    >Loaded the directory " .. inputDirectory )
 
 		return tempMdlTable
 	end
@@ -500,13 +495,13 @@ local function AddSpawnIcon( inputListPanel, inputModelPath ) ------------------
 	for i, path in ipairs( CheckModelPath( inputModelPath ) ) do
 		local ListItem = inputListPanel:Add( "SpawnIcon" )
 		ListItem:SetSize( 64, 64 )
-		print( "Model path for icon is " .. path )
+		-- print( "Model path for icon is " .. path )
 		ListItem:SetModel( path )
 
 		ListItem.DoRightClick = function()
 			RemoveFirstMatchInTable( modelPathTable, path )
 			updateServerTables()
-			print( "Going to remove myself" )
+			-- print( "Going to remove myself" )
 			ListItem:Remove()
 		end
 
@@ -775,7 +770,7 @@ function TOOL.BuildCPanel( cpanel )
 	MakeText( cpanel, Color( 50, 50, 50 ), "#tool.rat.desc" )
 
 	MakeCheckbox( cpanel, "#tool.rat.spawnFrozen", "rat_spawnFrozen" )
-	MakeCheckbox( cpanel, "#tool.rat.freezeRootBoneOnly", "rat_freezeRootBoneOnly" )
+	MakeCheckbox( cpanel, "#tool.rat.freezeRootBoneOnly", "rat_freezeRootBoneOnly", "rat_spawnFrozen" )
 	MakeCheckbox( cpanel, "#tool.rat.randomColor", "rat_randomColor" )
 	MakeCheckbox( cpanel, "#tool.rat.randomSkin", "rat_randomSkin" )
 	MakeCheckbox( cpanel, "#tool.rat.randomBodygroup", "rat_randomBodygroup" )
@@ -831,7 +826,7 @@ function TOOL.BuildCPanel( cpanel )
 
 	Scroll:Receiver( "SandboxContentPanel", function(self, inputPanels, dropped)
 		if ( dropped ) then
-			print( "Trying to drop" )
+			-- print( "Trying to drop" )
 
 			for i, panel in pairs( inputPanels ) do
 				if ( panel:GetName() != "SpawnIcon" ) then continue end
@@ -842,7 +837,7 @@ function TOOL.BuildCPanel( cpanel )
 			updateServerTables()
 
 			if ( inputPanels[1]:GetName() != "SpawnIcon" ) then return end
-			print( "You just dropped " .. inputPanels[1]:GetModelName() .. " on me." )
+			-- print( "You just dropped " .. inputPanels[1]:GetModelName() .. " on me." )
 		end
 	end)
 
@@ -959,7 +954,7 @@ function TOOL.BuildCPanel( cpanel )
 
 
 	MakeAxisSliderGroup( DermaList, "#tool.rat.pointSpacing", "#tool.rat.pointSpacingDescription", -1000, 1000, 0,
-	"rat_xOffsetBase", "rat_yOffsetBase", "rat_zOffsetBase" )
+	"rat_xSpacingBase", "rat_ySpacingBase", "rat_zSpacingBase" )
 
 	MakeText( DermaList, Color( 50, 50, 50 ), "" )
 
