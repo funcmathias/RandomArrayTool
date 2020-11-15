@@ -21,6 +21,7 @@ TOOL.ClientConVar["spawnChance"] = "100"
 
 TOOL.ClientConVar["ignoreSurfaceAngle"] = "0"
 TOOL.ClientConVar["facePlayerZ"] = "0"
+TOOL.ClientConVar["localGroundPlane"] = "0"
 TOOL.ClientConVar["previewAxis"] = "1"
 TOOL.ClientConVar["previewBox"] = "0"
 TOOL.ClientConVar["pushAwayFromSurface"] = "0"
@@ -97,6 +98,7 @@ if CLIENT then
 
 	language.Add( "tool.rat.ignoreSurfaceAngle", "Ignore surface angle" )
 	language.Add( "tool.rat.facePlayerZ", "Face player on Z axis" )
+	language.Add( "tool.rat.localGroundPlane", "Local player ground plane" )
 	language.Add( "tool.rat.previewPosition", "Show position previews" )
 	language.Add( "tool.rat.previewOffset", "Show random position offset" )
 	language.Add( "tool.rat.sphereRadius", "Editing sphere radius" )
@@ -151,6 +153,35 @@ if SERVER then
 		-- PrintTable( modelPathTable )
 		-- print( "--- Model Path Table End ---" )
 	end)
+end
+
+-- Checks the normal trace vs a trace against a plane at the players feet, if the plane trace is closer it will override the input trace position and normal
+function TOOL:CheckPlaneTrace( trace )
+	local player = self:GetOwner()
+	if ( !tobool( self:GetClientNumber( "localGroundPlane" ) ) ) then return end
+
+	local eyePosition = player:EyePos()
+	local eyeAngles = player:EyeAngles():Forward()
+	local playerPosition = player:GetPos()
+
+	-- The main magic that does the plane trace, thank garry I didn't have to do this manually as I was fearing
+	planeHitPosition = util.IntersectRayWithPlane( eyePosition, eyeAngles, playerPosition, Angle():Up() )
+
+	-- If plane trace is not valid then return
+	if ( planeHitPosition == nil ) then return end
+
+	-- Measure distance of the normal trace and the plane trace to compare
+	local traceHitDistance = eyePosition:DistToSqr( trace.HitPos )
+	local planeHitDistance = eyePosition:DistToSqr( planeHitPosition )
+	-- print( "traceHitDistance " .. traceHitDistance )
+	-- print( "planeHitDistance " .. planeHitDistance )
+
+	-- If plane hit is closer than trace hit then override the trace hit position and normal so it will be used instead
+	if ( planeHitDistance < traceHitDistance ) then
+		trace.HitPos = planeHitPosition
+		trace.HitNormal = Vector()
+		trace.HitNormal.Z = trace.HitNormal.Z + 90
+	end
 end
 
 -- Calculates the position array for both preview and spawning
@@ -348,6 +379,9 @@ function TOOL:SpawnPropTable( player, trace, sid )
 	local transformTable = self:CreateLocalTransformArray();
 	if ( next( transformTable ) == nil ) then return end
 
+	-- Check if we should use normal or plane trace, modifies original trace data
+	self:GetOwner():GetTool():CheckPlaneTrace( trace )
+
 	-- Adds random offsets to the whole array
 	self:RandomizeTransformArrayPosition( transformTable )
 	-- Offsets and rotates the array as a whole, and returns the array ralative rotation for objects
@@ -535,6 +569,8 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 		local previewBox = tobool( LocalPlayer():GetTool():GetClientNumber( "previewBox" ) )
 
 		local trace = LocalPlayer():GetEyeTrace()
+		-- Check if we should use normal or plane trace, modifies original trace data
+		LocalPlayer():GetTool():CheckPlaneTrace( trace )
 
 		-- Render per position visualization
 		if ( previewAxis || previewBox ) then
@@ -556,13 +592,17 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 			end
 		end
 
+		-- Calculate a position X units in front of the player, this is to place the main axis visalization at a set distance so it always looks the same size
+		local mainAxisPosition = LocalPlayer():EyePos()
+		mainAxisPosition:Add( LocalPlayer():EyeAngles():Forward() * 200 )
+
 		-- Render thicc axis at trace hit
 		local correctedHitAngle = trace.HitNormal:Angle()
 		correctedHitAngle.x = correctedHitAngle.x + 90
 		local thicc = 0.05
-		render.DrawWireframeBox( trace.HitPos, correctedHitAngle, Vector( 0, 0, 0 ), Vector( 5, thicc, thicc ), Color( 255, 0, 0, 255 ) , false )
-		render.DrawWireframeBox( trace.HitPos, correctedHitAngle, Vector( 0, 0, 0 ), Vector( thicc, 5, thicc ), Color( 0, 255, 0, 255 ) , false )
-		render.DrawWireframeBox( trace.HitPos, correctedHitAngle, Vector( 0, 0, 0 ), Vector( thicc, thicc, 5 ), Color( 0, 0, 255, 255 ) , false )
+		render.DrawWireframeBox( mainAxisPosition, correctedHitAngle, Vector( 0, 0, 0 ), Vector( 5, thicc, thicc ), Color( 255, 0, 0, 255 ) , false )
+		render.DrawWireframeBox( mainAxisPosition, correctedHitAngle, Vector( 0, 0, 0 ), Vector( thicc, 5, thicc ), Color( 0, 255, 0, 255 ) , false )
+		render.DrawWireframeBox( mainAxisPosition, correctedHitAngle, Vector( 0, 0, 0 ), Vector( thicc, thicc, 5 ), Color( 0, 0, 255, 255 ) , false )
 
 		-- Render single box that envelops the whole array
 		-- if ( #transformTable > 1 ) then
@@ -896,6 +936,7 @@ function TOOL.BuildCPanel( cpanel )
 	--[[----------------------------------------------------------------]] --Array visualization options
 	MakeCheckbox( cpanel, "#tool.rat.ignoreSurfaceAngle", "rat_ignoreSurfaceAngle" )
 	MakeCheckbox( cpanel, "#tool.rat.facePlayerZ", "rat_facePlayerZ", "rat_ignoreSurfaceAngle" )
+	MakeCheckbox( cpanel, "#tool.rat.localGroundPlane", "rat_localGroundPlane" )
 	MakeCheckbox( cpanel, "#tool.rat.previewPosition", "rat_previewAxis" )
 	MakeCheckbox( cpanel, "#tool.rat.previewOffset", "rat_previewBox" )
 
