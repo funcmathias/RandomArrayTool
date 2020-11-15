@@ -605,14 +605,14 @@ end
 ----------------------------------------------------
 
 local function MakeText( panel, color, str )
-	local Text = vgui.Create( "DLabel" )
-	Text:SetText( str )
-	Text:SetAutoStretchVertical( true )
-	Text:SetColor( color )
-	Text:SetWrap( true )
-	panel:AddItem( Text )
+	local label = vgui.Create( "DLabel" )
+	label:SetText( str )
+	label:SetAutoStretchVertical( true )
+	label:SetColor( color )
+	label:SetWrap( true )
+	panel:AddItem( label )
 
-	return Text
+	return label
 end
 
 local function MakeCheckbox( panel, titleString, convar, convarEnabledState )
@@ -622,18 +622,18 @@ local function MakeCheckbox( panel, titleString, convar, convarEnabledState )
 		enabledState = cvars.Bool( convarEnabledState )
 	end
 
-	local control = vgui.Create( "DSizeToContents" )
-	control:DockPadding( 0, -2, 0, -2 )
-	control:Dock( TOP )
-	panel:AddItem( control )
+	local contentHolder = vgui.Create( "DSizeToContents" )
+	contentHolder:DockPadding( 0, -2, 0, -2 )
+	contentHolder:Dock( TOP )
+	panel:AddItem( contentHolder )
 
-	local checkBox = vgui.Create( "DCheckBox", control )
+	local checkBox = vgui.Create( "DCheckBox", contentHolder )
 	checkBox:DockMargin( 0, 3, 0, 2 )
 	checkBox:SetConVar( convar )
 	checkBox:SetEnabled( enabledState )
 	checkBox:Dock( LEFT )
 
-	local label = vgui.Create( "DLabel", control )
+	local label = vgui.Create( "DLabel", contentHolder )
 	label:SetText( stringSpacing .. language.GetPhrase( titleString ) )
 	label:SetDark( enabledState )
 	label:SetEnabled( enabledState )
@@ -653,15 +653,16 @@ local function MakeCheckbox( panel, titleString, convar, convarEnabledState )
 		end, convarEnabledState .. "_callback")
 	end
 
+	return contentHolder
 end
 
 local function MakeNumberWang( panel, titleString, convar, min, max, leftSpacing )
-	local control = vgui.Create( "DPanelList" )
-	control:Dock( TOP )
-	control:DockPadding( leftSpacing, 0, 0, 0 )
-	panel:AddItem( control )
+	local dList = vgui.Create( "DPanelList" )
+	dList:Dock( TOP )
+	dList:DockPadding( leftSpacing, 0, 0, 0 )
+	panel:AddItem( dList )
 
-	local numbox = vgui.Create( "DNumberWang", control )
+	local numbox = vgui.Create( "DNumberWang", dList )
 	numbox:SetSize( 40, 20 )
 	numbox:SetPos( leftSpacing, 0 )
 	numbox:SetMinMax( min, max )
@@ -669,49 +670,81 @@ local function MakeNumberWang( panel, titleString, convar, min, max, leftSpacing
 	numbox:SetConVar( convar )
 	numbox:SetValue( cvars.Number( convar ) )
 
-	local label = vgui.Create( "DLabel", control )
+	local label = vgui.Create( "DLabel", dList )
 	label:SetText( titleString )
 	label:SetDark( true )
 	label:DockMargin( 50, 0, 0, 0 )
 	label:Dock( TOP )
+
+	return dList
 end
 
 local function MakeAxisSlider( panel, color, titleString, min, max, decimals, conVar )
-	local DermaNumSlider = vgui.Create( "DNumSlider" )
-	DermaNumSlider:SetText( stringSpacing .. language.GetPhrase( titleString ) )
-	DermaNumSlider:SetMinMax( min, max )
-	DermaNumSlider:SetTall( 15 )
-	DermaNumSlider:SetDecimals( decimals )
-	DermaNumSlider:SetDark( true )
-	DermaNumSlider:SetConVar( conVar )
-	DermaNumSlider.Paint = function()
+	local slider = vgui.Create( "DNumSlider" )
+	slider:SetText( stringSpacing .. language.GetPhrase( titleString ) )
+	slider:SetMinMax( min, max )
+	slider:SetTall( 15 )
+	slider:SetDecimals( decimals )
+	slider:SetDark( true )
+	slider:SetConVar( conVar )
+	slider.Paint = function()
 		surface.SetDrawColor( color )
 		surface.DrawRect( 0, 3, 4, 10 )
 	end
-	panel:AddItem( DermaNumSlider )
+	panel:AddItem( slider )
 
-	return DermaNumSlider
+	return slider
 end
 
 local function MakeAxisSliderGroup( panel, titleString, tooltipString, min, max, decimals, conVar1, conVar2, conVar3 )
-	local Text = MakeText( panel, Color( 50, 50, 50 ), titleString )
-	Text:SetTooltip( tooltipString )
-	Text:SetMouseInputEnabled( true )
-	function Text:DoClick()
+	local groupTitle = MakeText( panel, Color( 50, 50, 50 ), titleString )
+	groupTitle:SetTooltip( tooltipString )
+	groupTitle:SetMouseInputEnabled( true )
+	function groupTitle:DoClick()
 		GetConVar( conVar1 ):Revert()
 		GetConVar( conVar2 ):Revert()
 		GetConVar( conVar3 ):Revert()
 	end
-	function Text:OnCursorEntered()
-		Text:SetColor( Color( 200, 100, 0 ) )
+	function groupTitle:OnCursorEntered()
+		groupTitle:SetColor( Color( 200, 100, 0 ) )
 	end
-	function Text:OnCursorExited()
-		Text:SetColor( Color( 50, 50, 50 ) )
+	function groupTitle:OnCursorExited()
+		groupTitle:SetColor( Color( 50, 50, 50 ) )
 	end
 
 	MakeAxisSlider( panel, Color( 230, 0, 0 ), "#tool.rat.xAxis", min, max, decimals, conVar1 )
 	MakeAxisSlider( panel, Color( 0, 230, 0 ), "#tool.rat.yAxis", min, max, decimals, conVar2 )
 	MakeAxisSlider( panel, Color( 0, 0, 230 ), "#tool.rat.zAxis", min, max, decimals, conVar3 )
+end
+
+local function MakeCollapsible( panel, titleString, toggleConVar )
+	local toggledState = false
+
+	if ( toggleConVar != nil ) then
+		toggledState = cvars.Number( toggleConVar )
+	end
+
+	local collapsible = vgui.Create( "DCollapsibleCategory" )
+	collapsible:SetLabel( titleString )
+	collapsible:SetExpanded( toggledState )
+	if ( toggleConVar != nil ) then
+		function collapsible:OnToggle( val )
+			GetConVar( toggleConVar ):SetInt( val && 1 || 0 ) -- 1 if val is true, 0 if false
+		end
+	end
+	panel:AddItem( collapsible )
+
+	local dList = vgui.Create( "DPanelList" )
+	dList:SetAutoSize( true )
+	dList:SetSpacing( 4 )
+	dList:SetPadding( 8 )
+	dList.Paint = function()
+		surface.SetDrawColor( 235, 245, 255, 255 )
+		surface.DrawRect( 0, 0, 1000, 500 )
+	end
+	collapsible:SetContents( dList )
+
+	return dList
 end
 
 local function ChangeAndColorModelCount( panel )
@@ -734,6 +767,7 @@ local function ChangeAndColorModelCount( panel )
 end
 
 if CLIENT then
+	-- Console command to rebuild the tool ui
 	concommand.Add("rat_rebuildCPanel", function( ply, cmd, args )
 		if ply:GetTool() then
 			for i, toolData in pairs( ply:GetTool() ) do
@@ -758,6 +792,7 @@ function TOOL:RebuildCPanel()
 	cvars.RemoveChangeCallback("rat_xAmount", "rat_xAmount_callback")
 	cvars.RemoveChangeCallback("rat_yAmount", "rat_yAmount_callback")
 	cvars.RemoveChangeCallback("rat_zAmount", "rat_zAmount_callback")
+	cvars.RemoveChangeCallback("rat_spawnFrozen", "rat_spawnFrozen_callback")
 	cvars.RemoveChangeCallback("rat_ignoreSurfaceAngle", "rat_ignoreSurfaceAngle_callback")
 
 	panel:Clear()
@@ -784,28 +819,15 @@ function TOOL.BuildCPanel( cpanel )
 
 
 	--[[----------------------------------------------------------------]] --Model List Description
-	local DCollapsible = vgui.Create( "DCollapsibleCategory" )
-	DCollapsible:SetExpanded( 0 )
-	DCollapsible:SetLabel( "#tool.rat.listHelpTitle" )
-	cpanel:AddItem( DCollapsible )
+	local collapsible = MakeCollapsible( cpanel, "#tool.rat.listHelpTitle" )
 
-	local DermaList = vgui.Create( "DPanelList" )
-	DermaList:SetAutoSize( true )
-	DermaList:SetSpacing( 4 )
-	DermaList:SetPadding( 8 )
-	DermaList.Paint = function()
-		surface.SetDrawColor( 235, 245, 255, 255 )
-		surface.DrawRect( 0, 0, 1000, 500 )
-	end
-	DCollapsible:SetContents( DermaList )
-
-	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.listHelp1" )
-	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.listHelp2" )
-	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.listHelp3" )
-	-- MakeText( DermaList, Color( 50, 50, 50 ), "- Left click on one of the model icons to be able to configure and constrain the bodygroups and skins it will be spawned with." )
-	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.listHelp4" )
-	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.listHelp5" )
-	MakeText( DermaList, Color( 50, 50, 50 ), "#tool.rat.listHelp6" )
+	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp1" )
+	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp2" )
+	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp3" )
+	-- MakeText( collapsible, Color( 50, 50, 50 ), "- Left click on one of the model icons to be able to configure and constrain the bodygroups and skins it will be spawned with." )
+	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp4" )
+	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp5" )
+	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp6" )
 
 
 	--[[----------------------------------------------------------------]] --Model Grid List
@@ -907,125 +929,71 @@ function TOOL.BuildCPanel( cpanel )
 	end, "rat_zAmount_callback")
 
 	-- Only way I managed to get spacing on the top in this configuration was to make a spacer object sadly
-	local control = vgui.Create( "DPanelList" ) ----
-	control:DockMargin( 0, -10, 0, 0 )
-	control:SetHeight( 10 )
-	control.Paint = function()
+	local dListSpacing = vgui.Create( "DPanelList" ) ----
+	dListSpacing:DockMargin( 0, -10, 0, 0 )
+	dListSpacing:SetHeight( 10 )
+	dListSpacing.Paint = function()
 		surface.SetDrawColor( 230, 230, 230, 255 )
 		surface.DrawRect( 0, 0, 200, 200 )
 	end
-	cpanel:AddItem( control )
+	cpanel:AddItem( dListSpacing )
 
-	local control = vgui.Create( "DPanelList" ) ----
-	control:DockMargin( 0, -10, 0, 0 )
-	control:SetAutoSize( true )
-	control:SetPadding( 4 )
-	control.Paint = function()
+	local dListNumber = vgui.Create( "DPanelList" ) ----
+	dListNumber:DockMargin( 0, -10, 0, 0 )
+	dListNumber:SetAutoSize( true )
+	dListNumber:SetPadding( 4 )
+	dListNumber.Paint = function()
 		surface.SetDrawColor( 230, 230, 230, 255 )
 		surface.DrawRect( 0, 0, 200, 200 )
 	end
-	cpanel:AddItem( control )
+	cpanel:AddItem( dListNumber )
 
-	MakeNumberWang( control, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.xAxis" ), "rat_xAmount", 1, 999, 10 )
-	MakeNumberWang( control, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.yAxis" ), "rat_yAmount", 1, 999, 10 )
-	MakeNumberWang( control, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.zAxis" ), "rat_zAmount", 1, 999, 10 )
+	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.xAxis" ), "rat_xAmount", 1, 999, 10 )
+	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.yAxis" ), "rat_yAmount", 1, 999, 10 )
+	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.zAxis" ), "rat_zAmount", 1, 999, 10 )
 
 
 	--[[----------------------------------------------------------------]] --SPAWN TRANSFORMS
-	local DCollapsible = vgui.Create( "DCollapsibleCategory" )
-	DCollapsible:SetLabel( "#tool.rat.pointTransforms" )
-	function DCollapsible:OnToggle( val )
-		GetConVar( "rat_pointTransformExpanded" ):SetInt( val && 1 || 0 ) -- 1 if val is true, 0 if false
-	end
-	if ( GetConVar( "rat_pointTransformExpanded" ) != nil ) then
-		DCollapsible:SetExpanded( GetConVar( "rat_pointTransformExpanded" ):GetInt() )
-	end
-	cpanel:AddItem( DCollapsible )
-
-	local DermaList = vgui.Create( "DPanelList" )
-	DermaList:SetAutoSize( true )
-	DermaList:SetSpacing( 4 )
-	DermaList:SetPadding( 8 )
-	DermaList.Paint = function()
-		surface.SetDrawColor( 235, 245, 255, 255 )
-		surface.DrawRect( 0, 0, 1000, 500 )
-	end
-	DCollapsible:SetContents( DermaList )
+	local collapsiblePoint = MakeCollapsible( cpanel, "#tool.rat.pointTransforms", "rat_pointTransformExpanded" )
 
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.pointSpacing", "#tool.rat.pointSpacingDescription", -1000, 1000, 0,
+	MakeAxisSliderGroup( collapsiblePoint, "#tool.rat.pointSpacing", "#tool.rat.pointSpacingDescription", -1000, 1000, 0,
 	"rat_xSpacingBase", "rat_ySpacingBase", "rat_zSpacingBase" )
 
-	MakeText( DermaList, Color( 50, 50, 50 ), "" )
+	MakeText( collapsiblePoint, Color( 50, 50, 50 ), "" )
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.pointRotation", "#tool.rat.pointRotationDescription", -180, 180, 0,
+	MakeAxisSliderGroup( collapsiblePoint, "#tool.rat.pointRotation", "#tool.rat.pointRotationDescription", -180, 180, 0,
 	"rat_xRotationBase", "rat_yRotationBase", "rat_zRotationBase" )
 
 
 	--[[----------------------------------------------------------------]] --ARRAY OFFSETS
-	local DCollapsible = vgui.Create( "DCollapsibleCategory" )
-	DCollapsible:SetLabel( "#tool.rat.arrayTransforms" )
-	function DCollapsible:OnToggle( val )
-		GetConVar( "rat_arrayTransformsExpanded" ):SetInt( val && 1 || 0 ) -- 1 if val is true, 0 if false
-	end
-	if ( GetConVar( "rat_arrayTransformsExpanded" ) != nil ) then
-		DCollapsible:SetExpanded( GetConVar( "rat_arrayTransformsExpanded" ):GetInt() )
-	end
-	cpanel:AddItem( DCollapsible )
-
-	local DermaList = vgui.Create( "DPanelList" )
-	DermaList:SetAutoSize( true )
-	DermaList:SetSpacing( 4 )
-	DermaList:SetPadding( 8 )
-	DermaList.Paint = function()
-		surface.SetDrawColor( 235, 245, 255, 255 )
-		surface.DrawRect( 0, 0, 1000, 500 )
-	end
-	DCollapsible:SetContents( DermaList )
+	local collapsibleArray = MakeCollapsible( cpanel, "#tool.rat.arrayTransforms", "rat_arrayTransformsExpanded" )
 
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.arrayPivot", "#tool.rat.arrayPivotDescription", 0, 1, 2,
+	MakeAxisSliderGroup( collapsibleArray, "#tool.rat.arrayPivot", "#tool.rat.arrayPivotDescription", 0, 1, 2,
 	"rat_xArrayPivot", "rat_yArrayPivot", "rat_zArrayPivot" )
 
-	MakeText( DermaList, Color( 50, 50, 50 ), "" )
+	MakeText( collapsibleArray, Color( 50, 50, 50 ), "" )
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.arrayRotation", "#tool.rat.arrayRotationDescription", -180, 180, 0,
+	MakeAxisSliderGroup( collapsibleArray, "#tool.rat.arrayRotation", "#tool.rat.arrayRotationDescription", -180, 180, 0,
 	"rat_xArrayRotation", "rat_yArrayRotation", "rat_zArrayRotation" )
 
 
 	--[[----------------------------------------------------------------]] --RANDOM SPAWN OFFSETS
-	local DCollapsible = vgui.Create( "DCollapsibleCategory" )
-	DCollapsible:SetLabel( "#tool.rat.randomPointTransforms" )
-	function DCollapsible:OnToggle( val )
-		GetConVar( "rat_randomPointTransformsExpanded" ):SetInt( val && 1 || 0 ) -- 1 if val is true, 0 if false
-	end
-	if ( GetConVar( "rat_randomPointTransformsExpanded" ) != nil ) then
-		DCollapsible:SetExpanded( GetConVar( "rat_randomPointTransformsExpanded" ):GetInt() )
-	end
-	cpanel:AddItem( DCollapsible )
-
-	local DermaList = vgui.Create( "DPanelList" )
-	DermaList:SetAutoSize( true )
-	DermaList:SetSpacing( 4 )
-	DermaList:SetPadding( 8 )
-	DermaList.Paint = function()
-		surface.SetDrawColor( 235, 245, 255, 255 )
-		surface.DrawRect( 0, 0, 1000, 500 )
-	end
-	DCollapsible:SetContents( DermaList )
+	local collapsibleRandom = MakeCollapsible( cpanel, "#tool.rat.randomPointTransforms", "rat_randomPointTransformsExpanded" )
 
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.randomPointSpacing", "#tool.rat.randomPointSpacingDescription", 0, 1000, 0,
+	MakeAxisSliderGroup( collapsibleRandom, "#tool.rat.randomPointSpacing", "#tool.rat.randomPointSpacingDescription", 0, 1000, 0,
 	"rat_xOffsetRandom", "rat_yOffsetRandom", "rat_zOffsetRandom" )
 
-	MakeText( DermaList, Color( 50, 50, 50 ), "" )
+	MakeText( collapsibleRandom, Color( 50, 50, 50 ), "" )
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.randomPointRotation", "#tool.rat.randomPointRotationDescription", 0, 180, 0,
+	MakeAxisSliderGroup( collapsibleRandom, "#tool.rat.randomPointRotation", "#tool.rat.randomPointRotationDescription", 0, 180, 0,
 	"rat_xRotationRandom", "rat_yRotationRandom", "rat_zRotationRandom" )
 
-	MakeText( DermaList, Color( 50, 50, 50 ), "" )
+	MakeText( collapsibleRandom, Color( 50, 50, 50 ), "" )
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.randomPointRotationStepped", "#tool.rat.randomRotationSteppedDescription", 0, 180, 0,
+	MakeAxisSliderGroup( collapsibleRandom, "#tool.rat.randomPointRotationStepped", "#tool.rat.randomRotationSteppedDescription", 0, 180, 0,
 	"rat_xRotationRandomStepped", "rat_yRotationRandomStepped", "rat_zRotationRandomStepped" )
 
 
