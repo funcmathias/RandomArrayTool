@@ -23,6 +23,7 @@ TOOL.ClientConVar["ignoreSurfaceAngle"] = "0"
 TOOL.ClientConVar["facePlayerZ"] = "0"
 TOOL.ClientConVar["previewAxis"] = "1"
 TOOL.ClientConVar["previewBox"] = "1"
+TOOL.ClientConVar["pushAwayFromSurface"] = "0"
 TOOL.ClientConVar["sphereRadius"] = "0"
 
 TOOL.ClientConVar["mdlName"] = ""
@@ -36,7 +37,7 @@ TOOL.ClientConVar["randomPointTransformsExpanded"] = "0"
 TOOL.ClientConVar["xAmount"] = "1"
 TOOL.ClientConVar["xOffsetBase"] = "0"
 TOOL.ClientConVar["xOffsetRandom"] = "0"
-TOOL.ClientConVar["xArrayOffset"] = "0"
+TOOL.ClientConVar["xArrayPivot"] = "0.50"
 TOOL.ClientConVar["xRotationBase"] = "0"
 TOOL.ClientConVar["xRotationRandom"] = "0"
 TOOL.ClientConVar["xRotationRandomStepped"] = "0"
@@ -46,7 +47,7 @@ TOOL.ClientConVar["xArrayRotation"] = "0"
 TOOL.ClientConVar["yAmount"] = "1"
 TOOL.ClientConVar["yOffsetBase"] = "0"
 TOOL.ClientConVar["yOffsetRandom"] = "0"
-TOOL.ClientConVar["yArrayOffset"] = "0"
+TOOL.ClientConVar["yArrayPivot"] = "0.50"
 TOOL.ClientConVar["yRotationBase"] = "0"
 TOOL.ClientConVar["yRotationRandom"] = "0"
 TOOL.ClientConVar["yRotationRandomStepped"] = "0"
@@ -56,7 +57,7 @@ TOOL.ClientConVar["yArrayRotation"] = "0"
 TOOL.ClientConVar["zAmount"] = "1"
 TOOL.ClientConVar["zOffsetBase"] = "0"
 TOOL.ClientConVar["zOffsetRandom"] = "0"
-TOOL.ClientConVar["zArrayOffset"] = "0"
+TOOL.ClientConVar["zArrayPivot"] = "0.00"
 TOOL.ClientConVar["zRotationBase"] = "0"
 TOOL.ClientConVar["zRotationRandom"] = "0"
 TOOL.ClientConVar["zRotationRandomStepped"] = "0"
@@ -114,8 +115,8 @@ if CLIENT then
 	language.Add( "tool.rat.pointRotationDescription", "Rotation of all array points." .. string.char(10) .. "Click text to reset!" )
 
 	language.Add( "tool.rat.arrayTransforms", "Array origin transforms" )
-	language.Add( "tool.rat.arrayOffset", "Offset" )
-	language.Add( "tool.rat.arrayOffsetDescription", "Position offset of the array origin." .. string.char(10) .. "Click text to reset!" )
+	language.Add( "tool.rat.arrayPivot", "Pivot" )
+	language.Add( "tool.rat.arrayPivotDescription", "Pivot of the array. 0.5 in all axes will center it to cursor." .. string.char(10) .. "Click text to reset!" )
 	language.Add( "tool.rat.arrayRotation", "Rotation" )
 	language.Add( "tool.rat.arrayRotationDescription", "Rotation of the array origin." .. string.char(10) .. "Click text to reset!" )
 
@@ -214,10 +215,9 @@ function TOOL:ModifyTransformArray( trace, transformArray ) -- Calculates the po
 	local yRotationBase = self:GetClientNumber( "yRotationBase" )
 	local zRotationBase = self:GetClientNumber( "zRotationBase" )
 
-	local xArrayOffset = self:GetClientNumber( "xArrayOffset" )
-	local yArrayOffset = self:GetClientNumber( "yArrayOffset" )
-	local zArrayOffset = self:GetClientNumber( "zArrayOffset" )
-	local arrayOffset = Vector( xArrayOffset, yArrayOffset, zArrayOffset )
+	local xArrayPivot = self:GetClientNumber( "xArrayPivot" )
+	local yArrayPivot = self:GetClientNumber( "yArrayPivot" )
+	local zArrayPivot = self:GetClientNumber( "zArrayPivot" )
 
 	local xArrayRotation = self:GetClientNumber( "xArrayRotation" )
 	local yArrayRotation = self:GetClientNumber( "yArrayRotation" )
@@ -225,11 +225,22 @@ function TOOL:ModifyTransformArray( trace, transformArray ) -- Calculates the po
 
 	local ignoreSurfaceAngle = self:GetClientNumber( "ignoreSurfaceAngle" )
 	local facePlayerZ = self:GetClientNumber( "facePlayerZ" )
+	local pushAwayFromSurface = self:GetClientNumber( "pushAwayFromSurface" )
+
+	-- Calcultate the array offset based on the pivot values
+	local arrayPivot = Vector( xArrayPivot, yArrayPivot, zArrayPivot ) * transformArray[#transformArray]
 
 	-- Correct the hit angle
 	local correctedHitAngle = trace.HitNormal:Angle()
-	correctedHitAngle.x = correctedHitAngle.x + 90
+	correctedHitAngle.X = correctedHitAngle.X + 90
+	correctedHitAngle:Normalize()
 	local tempAngle = correctedHitAngle
+
+	-- Make an offset to push the array away from the hit surface in the angle of the surface
+	local furfacePushOffset = Vector()
+	if ( pushAwayFromSurface > 0 ) then
+		furfacePushOffset:Add( correctedHitAngle:Up() * pushAwayFromSurface )
+	end
 
 	-- Ignore surface angle and set it do a default world angle, or face player on z axis
 	if ( tobool( ignoreSurfaceAngle ) ) then
@@ -241,20 +252,21 @@ function TOOL:ModifyTransformArray( trace, transformArray ) -- Calculates the po
 	end
 
 	-- Angle for the array
-	tempAngle:RotateAroundAxis( tempAngle:Forward(), xArrayRotation) -- X
-	tempAngle:RotateAroundAxis( tempAngle:Right(), yArrayRotation) -- Y
-	tempAngle:RotateAroundAxis( tempAngle:Up(), zArrayRotation) -- Z
+	tempAngle:RotateAroundAxis( tempAngle:Forward(), xArrayRotation ) -- X
+	tempAngle:RotateAroundAxis( tempAngle:Right(), yArrayRotation ) -- Y
+	tempAngle:RotateAroundAxis( tempAngle:Up(), zArrayRotation ) -- Z
 
 	-- Offset and rotate the array positions
 	for i, transform in pairs( transformArray ) do
-		transform:Add( arrayOffset )
+		transform:Sub( arrayPivot )
 		transform:Rotate( tempAngle )
+		transform:Add( furfacePushOffset )
 	end
 
 	-- Angle for each element on top of the array rotation
-	tempAngle:RotateAroundAxis( tempAngle:Forward(), xRotationBase) -- X
-	tempAngle:RotateAroundAxis( tempAngle:Right(), yRotationBase) -- Y
-	tempAngle:RotateAroundAxis( tempAngle:Up(), zRotationBase) -- Z
+	tempAngle:RotateAroundAxis( tempAngle:Forward(), xRotationBase ) -- X
+	tempAngle:RotateAroundAxis( tempAngle:Right(), yRotationBase ) -- Y
+	tempAngle:RotateAroundAxis( tempAngle:Up(), zRotationBase ) -- Z
 
 	return tempAngle
 end
@@ -292,9 +304,9 @@ function TOOL:RandomizeRotation( baseRotation )
 		yRotationRandom = math.random( yRotationRandom * -1, yRotationRandom )
 		zRotationRandom = math.random( zRotationRandom * -1, zRotationRandom )
 
-		tempAngle:RotateAroundAxis( tempAngle:Forward(), xRotationRandom) -- X
-		tempAngle:RotateAroundAxis( tempAngle:Right(), yRotationRandom) -- Y
-		tempAngle:RotateAroundAxis( tempAngle:Up(), zRotationRandom) -- Z
+		tempAngle:RotateAroundAxis( tempAngle:Forward(), xRotationRandom ) -- X
+		tempAngle:RotateAroundAxis( tempAngle:Right(), yRotationRandom ) -- Y
+		tempAngle:RotateAroundAxis( tempAngle:Up(), zRotationRandom ) -- Z
 	end
 
 	return tempAngle
@@ -669,12 +681,12 @@ local function MakeNumberWang( panel, titleString, convar, min, max, leftSpacing
 	label:Dock( TOP )
 end
 
-local function MakeAxisSlider( panel, color, titleString, min, max, conVar )
+local function MakeAxisSlider( panel, color, titleString, min, max, decimals, conVar )
 	local DermaNumSlider = vgui.Create( "DNumSlider" )
 	DermaNumSlider:SetText( stringSpacing .. language.GetPhrase( titleString ) )
 	DermaNumSlider:SetMinMax( min, max )
 	DermaNumSlider:SetTall( 15 )
-	DermaNumSlider:SetDecimals( 0 )
+	DermaNumSlider:SetDecimals( decimals )
 	DermaNumSlider:SetDark( true )
 	DermaNumSlider:SetConVar( conVar )
 	DermaNumSlider.Paint = function()
@@ -686,7 +698,7 @@ local function MakeAxisSlider( panel, color, titleString, min, max, conVar )
 	return DermaNumSlider
 end
 
-local function MakeAxisSliderGroup( panel, titleString, tooltipString, min, max, conVar1, conVar2, conVar3 )
+local function MakeAxisSliderGroup( panel, titleString, tooltipString, min, max, decimals, conVar1, conVar2, conVar3 )
 	local Text = MakeText( panel, Color( 50, 50, 50 ), titleString )
 	Text:SetTooltip( tooltipString )
 	Text:SetMouseInputEnabled( true )
@@ -702,9 +714,9 @@ local function MakeAxisSliderGroup( panel, titleString, tooltipString, min, max,
 		Text:SetColor( Color( 50, 50, 50 ) )
 	end
 
-	MakeAxisSlider( panel, Color( 230, 0, 0 ), "#tool.rat.xAxis", min, max, conVar1 )
-	MakeAxisSlider( panel, Color( 0, 230, 0 ), "#tool.rat.yAxis", min, max, conVar2 )
-	MakeAxisSlider( panel, Color( 0, 0, 230 ), "#tool.rat.zAxis", min, max, conVar3 )
+	MakeAxisSlider( panel, Color( 230, 0, 0 ), "#tool.rat.xAxis", min, max, decimals, conVar1 )
+	MakeAxisSlider( panel, Color( 0, 230, 0 ), "#tool.rat.yAxis", min, max, decimals, conVar2 )
+	MakeAxisSlider( panel, Color( 0, 0, 230 ), "#tool.rat.zAxis", min, max, decimals, conVar3 )
 end
 
 local function ChangeAndColorModelCount( panel )
@@ -871,6 +883,7 @@ function TOOL.BuildCPanel( cpanel )
 	MakeCheckbox( cpanel, "#tool.rat.previewOffset", "rat_previewBox" )
 
 	MakeNumberWang( cpanel, "#tool.rat.sphereRadius", "rat_sphereRadius", 0, 9999, 0 )
+	MakeNumberWang( cpanel, "Push array away from surface", "rat_pushAwayFromSurface", 0, 9999, 0 )
 
 	--[[----------------------------------------------------------------]] --Model Counter
 	local NumberOfModelsText = vgui.Create( "DLabel" )
@@ -945,12 +958,12 @@ function TOOL.BuildCPanel( cpanel )
 	DCollapsible:SetContents( DermaList )
 
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.pointSpacing", "#tool.rat.pointSpacingDescription", -1000, 1000,
+	MakeAxisSliderGroup( DermaList, "#tool.rat.pointSpacing", "#tool.rat.pointSpacingDescription", -1000, 1000, 0,
 	"rat_xOffsetBase", "rat_yOffsetBase", "rat_zOffsetBase" )
 
 	MakeText( DermaList, Color( 50, 50, 50 ), "" )
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.pointRotation", "#tool.rat.pointRotationDescription", -180, 180,
+	MakeAxisSliderGroup( DermaList, "#tool.rat.pointRotation", "#tool.rat.pointRotationDescription", -180, 180, 0,
 	"rat_xRotationBase", "rat_yRotationBase", "rat_zRotationBase" )
 
 
@@ -976,12 +989,12 @@ function TOOL.BuildCPanel( cpanel )
 	DCollapsible:SetContents( DermaList )
 
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.arrayOffset", "#tool.rat.arrayOffsetDescription", -1000, 1000,
-	"rat_xArrayOffset", "rat_yArrayOffset", "rat_zArrayOffset" )
+	MakeAxisSliderGroup( DermaList, "#tool.rat.arrayPivot", "#tool.rat.arrayPivotDescription", 0, 1, 2,
+	"rat_xArrayPivot", "rat_yArrayPivot", "rat_zArrayPivot" )
 
 	MakeText( DermaList, Color( 50, 50, 50 ), "" )
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.arrayRotation", "#tool.rat.arrayRotationDescription", -180, 180,
+	MakeAxisSliderGroup( DermaList, "#tool.rat.arrayRotation", "#tool.rat.arrayRotationDescription", -180, 180, 0,
 	"rat_xArrayRotation", "rat_yArrayRotation", "rat_zArrayRotation" )
 
 
@@ -1007,17 +1020,17 @@ function TOOL.BuildCPanel( cpanel )
 	DCollapsible:SetContents( DermaList )
 
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.randomPointSpacing", "#tool.rat.randomPointSpacingDescription", 0, 1000,
+	MakeAxisSliderGroup( DermaList, "#tool.rat.randomPointSpacing", "#tool.rat.randomPointSpacingDescription", 0, 1000, 0,
 	"rat_xOffsetRandom", "rat_yOffsetRandom", "rat_zOffsetRandom" )
 
 	MakeText( DermaList, Color( 50, 50, 50 ), "" )
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.randomPointRotation", "#tool.rat.randomPointRotationDescription", 0, 180,
+	MakeAxisSliderGroup( DermaList, "#tool.rat.randomPointRotation", "#tool.rat.randomPointRotationDescription", 0, 180, 0,
 	"rat_xRotationRandom", "rat_yRotationRandom", "rat_zRotationRandom" )
 
 	MakeText( DermaList, Color( 50, 50, 50 ), "" )
 
-	MakeAxisSliderGroup( DermaList, "#tool.rat.randomPointRotationStepped", "#tool.rat.randomRotationSteppedDescription", 0, 180,
+	MakeAxisSliderGroup( DermaList, "#tool.rat.randomPointRotationStepped", "#tool.rat.randomRotationSteppedDescription", 0, 180, 0,
 	"rat_xRotationRandomStepped", "rat_yRotationRandomStepped", "rat_zRotationRandomStepped" )
 
 
