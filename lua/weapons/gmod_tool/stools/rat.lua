@@ -644,6 +644,69 @@ end
 ----------------------------------------------------
 ----------------------------------------------------
 
+-- [[----------------------------------------------------------------]] -- TOOL SCREEN
+
+-- Function to render an axis line on the toolscreen
+local function Draw2DAxisLine( startPosition, lineVector, lineLength, lineColor )
+	local endPosition = Vector() + startPosition
+	endPosition:Add( lineVector * lineLength )
+	surface.SetDrawColor( lineColor )
+
+	-- Render the line, doing it 3 times with a one pixel offset to make them thicker
+	surface.DrawLine( startPosition.X, startPosition.Y, endPosition.X, endPosition.Y )
+	surface.DrawLine( startPosition.X + 1, startPosition.Y, endPosition.X + 1, endPosition.Y )
+	surface.DrawLine( startPosition.X, startPosition.Y + 1, endPosition.X, endPosition.Y + 1 )
+end
+
+-- Make material for tool screen
+local toolScreenRatMaterial = Material( "rat_assets/rat_head.png", "noclamp ignorez mips" )
+
+-- Draw tool screen, size is 256 x 256
+function TOOL:DrawToolScreen( width, height )
+	local xColor = Color( 255, 75, 75 )
+	local yColor = Color( 75, 255, 75 )
+	local zColor = Color( 75, 75, 255 )
+
+	surface.SetDrawColor( Color( 20, 20, 20 ) )
+	surface.DrawRect( 0, 0, width, height )
+
+	-- Draw scrolling background, is additive to the rect above
+	surface.SetMaterial( toolScreenRatMaterial )
+	local uvOffset = math.TimeFraction( 0, 1, CurTime() / 10 )
+	surface.DrawTexturedRectUV( 0, 0, width, height, 0 + uvOffset, -0.2, 1 + uvOffset, 0.8 )
+
+	-- Tool title text, top left
+	draw.SimpleText( "Random", "DermaLarge", 10, 10, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP )
+	draw.SimpleText( "Array", "DermaLarge", 10, 40, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP )
+	draw.SimpleText( "Tool", "DermaLarge", 10, 70, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP )
+
+	-- Rounding the trace positions, no decimals
+	local trace = self:GetOwner():GetEyeTrace()
+	local xPosition = trace.HitPos.X + (2^52 + 2^51) - (2^52 + 2^51)
+	local yPosition = trace.HitPos.Y + (2^52 + 2^51) - (2^52 + 2^51)
+	local zPosition = trace.HitPos.Z + (2^52 + 2^51) - (2^52 + 2^51)
+
+	-- Cursor world position text, top right
+	draw.SimpleText( "X " .. xPosition, "DermaLarge", 246, 10, xColor, TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP )
+	draw.SimpleText( "Y " .. yPosition, "DermaLarge", 246, 40, yColor, TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP )
+	draw.SimpleText( "Z " .. zPosition, "DermaLarge", 246, 70, zColor, TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP )
+
+	-- Set up needed data for screen axis visualization, and correcting the base rotation
+	local baseEyeAngle = self:GetOwner():EyeAngles()
+	local axisAngle = Angle( 90, 0, 90 )
+	local lineLength = 50
+
+	-- Rotating the screen axis according to player view, a bit confusing what axis does what, but it works
+	axisAngle:RotateAroundAxis( Angle():Right(), baseEyeAngle.Y * -1 ) -- Z according to the local screen axis
+	axisAngle:RotateAroundAxis( Angle():Forward(), baseEyeAngle.X ) -- Y according to the local screen axis
+
+	Draw2DAxisLine( Vector( 128, 190 ), axisAngle:Forward() * -1, lineLength, xColor )
+	Draw2DAxisLine( Vector( 128, 190 ), axisAngle:Right(), lineLength, yColor )
+	Draw2DAxisLine( Vector( 128, 190 ), axisAngle:Up(), lineLength, zColor )
+end
+
+-- [[----------------------------------------------------------------]] -- CONTROL PANEL
+
 local function MakeText( panel, color, str )
 	local label = vgui.Create( "DLabel" )
 	label:SetText( str )
@@ -858,7 +921,7 @@ function TOOL.BuildCPanel( cpanel )
 	cpanel:ControlHelp( "" )
 
 
-	--[[----------------------------------------------------------------]] --Model List Description
+	-- [[----------------------------------------------------------------]] -- Model List Description
 	local collapsible = MakeCollapsible( cpanel, "#tool.rat.listHelpTitle" )
 
 	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp1" )
@@ -870,7 +933,7 @@ function TOOL.BuildCPanel( cpanel )
 	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp6" )
 
 
-	--[[----------------------------------------------------------------]] --Model Grid List
+	-- [[----------------------------------------------------------------]] -- Model Grid List
 	cpanel:TextEntry( "#tool.rat.mdlAdd", "rat_mdlName" )
 
 
@@ -933,7 +996,7 @@ function TOOL.BuildCPanel( cpanel )
 
 
 
-	--[[----------------------------------------------------------------]] --Array visualization options
+	-- [[----------------------------------------------------------------]] -- Array visualization options
 	MakeCheckbox( cpanel, "#tool.rat.ignoreSurfaceAngle", "rat_ignoreSurfaceAngle" )
 	MakeCheckbox( cpanel, "#tool.rat.facePlayerZ", "rat_facePlayerZ", "rat_ignoreSurfaceAngle" )
 	MakeCheckbox( cpanel, "#tool.rat.localGroundPlane", "rat_localGroundPlane" )
@@ -943,7 +1006,7 @@ function TOOL.BuildCPanel( cpanel )
 	MakeNumberWang( cpanel, "#tool.rat.sphereRadius", "rat_sphereRadius", 0, 9999, 0 )
 	MakeNumberWang( cpanel, "Push array away from surface", "rat_pushAwayFromSurface", 0, 9999, 0 )
 
-	--[[----------------------------------------------------------------]] --Model Counter
+	-- [[----------------------------------------------------------------]] -- Model Counter
 	local NumberOfModelsText = vgui.Create( "DLabel" )
 	NumberOfModelsText:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.numOfObjects" ) .. "1" )
 	NumberOfModelsText:SetFont( "DermaDefaultBold" )
@@ -994,11 +1057,11 @@ function TOOL.BuildCPanel( cpanel )
 	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.zAxis" ), "rat_zAmount", 1, 999, 10 )
 
 
-	--[[----------------------------------------------------------------]] --SPAWN TRANSFORMS
+	-- [[----------------------------------------------------------------]] -- SPAWN TRANSFORMS
 	local collapsiblePoint = MakeCollapsible( cpanel, "#tool.rat.pointTransforms", "rat_pointTransformExpanded" )
 
 
-	MakeAxisSliderGroup( collapsiblePoint, "#tool.rat.pointSpacing", "#tool.rat.pointSpacingDescription", -1000, 1000, 0,
+	MakeAxisSliderGroup( collapsiblePoint, "#tool.rat.pointSpacing", "#tool.rat.pointSpacingDescription", 0, 1000, 0,
 	"rat_xSpacingBase", "rat_ySpacingBase", "rat_zSpacingBase" )
 
 	MakeText( collapsiblePoint, Color( 50, 50, 50 ), "" )
@@ -1007,7 +1070,7 @@ function TOOL.BuildCPanel( cpanel )
 	"rat_xRotationBase", "rat_yRotationBase", "rat_zRotationBase" )
 
 
-	--[[----------------------------------------------------------------]] --ARRAY OFFSETS
+	-- [[----------------------------------------------------------------]] -- ARRAY OFFSETS
 	local collapsibleArray = MakeCollapsible( cpanel, "#tool.rat.arrayTransforms", "rat_arrayTransformsExpanded" )
 
 
@@ -1020,7 +1083,7 @@ function TOOL.BuildCPanel( cpanel )
 	"rat_xArrayRotation", "rat_yArrayRotation", "rat_zArrayRotation" )
 
 
-	--[[----------------------------------------------------------------]] --RANDOM SPAWN OFFSETS
+	-- [[----------------------------------------------------------------]] -- RANDOM SPAWN OFFSETS
 	local collapsibleRandom = MakeCollapsible( cpanel, "#tool.rat.randomPointTransforms", "rat_randomPointTransformsExpanded" )
 
 
@@ -1029,7 +1092,7 @@ function TOOL.BuildCPanel( cpanel )
 
 	MakeText( collapsibleRandom, Color( 50, 50, 50 ), "" )
 
-	MakeAxisSliderGroup( collapsibleRandom, "#tool.rat.randomPointRotation", "#tool.rat.randomPointRotationDescription", 0, 180, 0,
+	MakeAxisSliderGroup( collapsibleRandom, "#tool.rat.randomPointRotation", "#tool.rat.randomPointRotationDescription", -180, 180, 0,
 	"rat_xRotationRandom", "rat_yRotationRandom", "rat_zRotationRandom" )
 
 	MakeText( collapsibleRandom, Color( 50, 50, 50 ), "" )
@@ -1038,7 +1101,7 @@ function TOOL.BuildCPanel( cpanel )
 	"rat_xRotationRandomStepped", "rat_yRotationRandomStepped", "rat_zRotationRandomStepped" )
 
 
-	--[[----------------------------------------------------------------]] --DEBUG
+	-- [[----------------------------------------------------------------]] -- DEBUG
 
 	local div = vgui.Create( "DVerticalDivider" )
 	-- div:Dock( FILL ) -- Make the divider fill the space of the DFrame
