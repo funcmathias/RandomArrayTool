@@ -646,7 +646,7 @@ end
 
 -- [[----------------------------------------------------------------]] -- TOOL SCREEN
 
--- Function to render an axis line on the toolscreen
+-- Function to draw an axis line visualization on the tool screen
 local function Draw2DAxisLine( startPosition, lineVector, lineLength, lineColor )
 	local endPosition = Vector() + startPosition
 	endPosition:Add( lineVector * lineLength )
@@ -656,6 +656,32 @@ local function Draw2DAxisLine( startPosition, lineVector, lineLength, lineColor 
 	surface.DrawLine( startPosition.X, startPosition.Y, endPosition.X, endPosition.Y )
 	surface.DrawLine( startPosition.X + 1, startPosition.Y, endPosition.X + 1, endPosition.Y )
 	surface.DrawLine( startPosition.X, startPosition.Y + 1, endPosition.X, endPosition.Y + 1 )
+end
+
+-- Function to draw an axis plane visualization on the tool screen
+local function Draw2DAxisPlane( startPosition, axisVector1, axisVector2, axisLength, planeColor )
+	-- Set up vertex data for quad
+	local vert1 = startPosition
+	local vert2 = Vector() + vert1
+	local vert3 = Vector() + vert1
+	local vert4 = Vector() + vert1
+
+	vert2:Add( axisVector1 * axisLength )
+	vert3:Add( axisVector1 * axisLength )
+	vert3:Add( axisVector2 * axisLength ) -- Vert 3 gets both axis vectors added since it's the outermost vert
+	vert4:Add( axisVector2 * axisLength )
+
+	local verts = {
+		{ x = vert1.X, y = vert1.Y },
+		{ x = vert2.X, y = vert2.Y },
+		{ x = vert3.X, y = vert3.Y },
+		{ x = vert4.X, y = vert4.Y },
+	}
+
+	-- Set color and draw quad
+	surface.SetDrawColor( planeColor )
+	draw.NoTexture()
+	surface.DrawPoly( verts )
 end
 
 -- Make material for tool screen
@@ -700,9 +726,15 @@ function TOOL:DrawToolScreen( width, height )
 	axisAngle:RotateAroundAxis( Angle():Right(), baseEyeAngle.Y * -1 ) -- Z according to the local screen axis
 	axisAngle:RotateAroundAxis( Angle():Forward(), baseEyeAngle.X ) -- Y according to the local screen axis
 
+	-- Draw axis line visualization helpers
 	Draw2DAxisLine( Vector( 128, 190 ), axisAngle:Forward() * -1, lineLength, xColor )
 	Draw2DAxisLine( Vector( 128, 190 ), axisAngle:Right(), lineLength, yColor )
 	Draw2DAxisLine( Vector( 128, 190 ), axisAngle:Up(), lineLength, zColor )
+
+	-- Draw axis plane visualization helpers
+	Draw2DAxisPlane( Vector( 128, 190 ), axisAngle:Right(), axisAngle:Forward() * -1, lineLength, Color( 255, 255, 100, 2 ) )
+	Draw2DAxisPlane( Vector( 128, 190 ), axisAngle:Up(), axisAngle:Right(), lineLength, Color( 100, 255, 255, 2 ) )
+	Draw2DAxisPlane( Vector( 128, 190 ), axisAngle:Forward() * -1, axisAngle:Up(), lineLength, Color( 255, 100, 255, 2 ) )
 end
 
 -- [[----------------------------------------------------------------]] -- CONTROL PANEL
