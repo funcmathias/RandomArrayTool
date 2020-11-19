@@ -4,7 +4,7 @@
 	"author_name" "func_Mathias"
 	"info" "
 {
-	"description": "This tool lets you spawn objects in a randomized array, or randomize already spawned objects in various ways.",
+	"description": "This tool lets you spawn props in a randomized array, or randomize already spawned props in various ways.",
 	"type": "tool",
 	"tags": 
 	[
@@ -13,6 +13,7 @@
 		"tool",
 		"spawn",
 		"prop",
+		"model",
 		"bodygroup",
 		"skin",
 		"grid"

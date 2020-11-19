@@ -74,10 +74,10 @@ if CLIENT then
 	}
 
 	language.Add( "tool.rat.name", "Random Array Tool" )
-	language.Add( "tool.rat.left", "Spawn random object array" )
-	language.Add( "tool.rat.right", "Randomize object under cursor" )
-	language.Add( "tool.rat.reload", "Randomize object(s) within sphere volume" )
-	language.Add( "tool.rat.desc", "This tool lets you spawn objects in a randomized array, or randomize already spawned objects in various ways." )
+	language.Add( "tool.rat.left", "Spawn array of randomized props." )
+	language.Add( "tool.rat.right", "Randomize prop under cursor, or all props within the editing sphere if it's bigger than 0." )
+	language.Add( "tool.rat.reload", "Remove prop under cursor, or all props within the editing sphere if it's bigger than 0." )
+	language.Add( "tool.rat.desc", "This tool lets you spawn props in a randomized array, or randomize already spawned props in various ways." )
 
 	language.Add( "tool.rat.spawnFrozen", "Spawn frozen" )
 	language.Add( "tool.rat.freezeRootBoneOnly", "Freeze only root bone of ragdolls" )
@@ -88,13 +88,13 @@ if CLIENT then
 
 	language.Add( "tool.rat.spawnChance", "Spawn chance (0 - 100)" )
 
-	language.Add( "tool.rat.listHelpTitle", "Object list help - Click for info" )
-	language.Add( "tool.rat.listHelp1", "With the panel below you can keep track of the models you want to randomly spawn." )
-	language.Add( "tool.rat.listHelp2", "- You can drag and drop any model from the default spawnlist into the grey panel below to add them. You can select and drag multiple at once!" )
-	language.Add( "tool.rat.listHelp3", "- You can also add models by using a path, if it's a path to a folder it will add every model in the folder. Be careful with folders containing a large amount of models." )
-	language.Add( "tool.rat.listHelp4", "- Right click on one of the model icons to remove it from the list." )
-	language.Add( "tool.rat.listHelp5", "- Tip: Adding multiple copies of the same model will increase it's chance of being spawned." )
-	language.Add( "tool.rat.listHelp6", "- Tip: There is no option for saving your list but you can create a custom spawnlist to keep all the desired models in one place for easy adding to this list." )
+	language.Add( "tool.rat.listHelpTitle", "Prop list help - Click for info" )
+	language.Add( "tool.rat.listHelp1", "With the panel below you can keep track of the props you want to randomly spawn." )
+	language.Add( "tool.rat.listHelp2", "- You can drag and drop any prop from the default spawnlist into the grey panel below to add them. You can select and drag multiple at once!" )
+	language.Add( "tool.rat.listHelp3", "- You can also add props by using a path, if it's a path to a folder it will add every model in the folder as a prop. Be careful with folders containing a large amount of models." )
+	language.Add( "tool.rat.listHelp4", "- Right click on one of the icons to remove it from the list." )
+	language.Add( "tool.rat.listHelp5", "- Tip: Adding multiple copies of the same prop will increase it's chance of being spawned." )
+	language.Add( "tool.rat.listHelp6", "- Tip: There is no option for saving your list but you can create a custom spawnlist to keep all the desired props in one place for easy adding to this list." )
 
 	language.Add( "tool.rat.ignoreSurfaceAngle", "Ignore surface angle" )
 	language.Add( "tool.rat.facePlayerZ", "Face player on Z axis" )
@@ -103,11 +103,11 @@ if CLIENT then
 	language.Add( "tool.rat.previewOffset", "Show random position offset" )
 	language.Add( "tool.rat.sphereRadius", "Editing sphere radius" )
 
-	language.Add( "tool.rat.mdlAdd", "Add model by path" )
+	language.Add( "tool.rat.mdlAdd", "Add prop by path" )
 	language.Add( "tool.rat.mdlAddButton", "Add to list from path" )
-	language.Add( "tool.rat.mdlClearButton", "Clear model list" )
+	language.Add( "tool.rat.mdlClearButton", "Clear prop list" )
 
-	language.Add( "tool.rat.numOfObjects", "Number of objects: " )
+	language.Add( "tool.rat.numOfProps", "Number of props: " )
 	language.Add( "tool.rat.numberIn", "Number in " )
 
 	language.Add( "tool.rat.pointTransforms", "Array point transforms" )
@@ -239,7 +239,7 @@ function TOOL:RandomizeTransformArrayPosition( transformArray )
 	end
 end
 
--- A bit unconventional, but this function modifies the original array and returns the angle of the array plus object rotation
+-- A bit unconventional, but this function modifies the original array and returns the angle of the array plus prop rotation
 function TOOL:ModifyTransformArray( trace, transformArray ) -- Calculates the position array for both preview and spawning
 	local xRotationBase = self:GetClientNumber( "xRotationBase" )
 	local yRotationBase = self:GetClientNumber( "yRotationBase" )
@@ -343,10 +343,10 @@ function TOOL:RandomizeRotation( baseRotation )
 end
 
 -- Randomizes input entity in multiple ways
-function TOOL:RandomizeEntityModel( entity )
-	if ( !IsValid( entity ) ) then return end
+function TOOL:RandomizeProp( entity )
+	if ( !self:IsSupportedPropAndValid( entity ) ) then return end
+
 	local entityClass = entity:GetClass()
-	if ( entityClass == "player" ) then return end
 	if ( entityClass == "prop_effect" ) then entity = entity.AttachedEntity end -- Needed to change prop_effects when tracing directly
 
 	-- print( "entity class " .. entity:GetClass() )
@@ -384,13 +384,13 @@ function TOOL:SpawnPropTable( player, trace, sid )
 
 	-- Adds random offsets to the whole array
 	self:RandomizeTransformArrayPosition( transformTable )
-	-- Offsets and rotates the array as a whole, and returns the array ralative rotation for objects
+	-- Offsets and rotates the array as a whole, and returns the array ralative rotation for props
 	local elementAngleStatic = self:ModifyTransformArray( trace, transformTable )
 	local elementAngle = Angle()
 
 	local spawnChance = self:GetClientNumber( "spawnChance" )
 
-	undo.Create( "rat_array_object" )
+	undo.Create( "rat_array_prop" )
 	undo.SetCustomUndoText( "#tool.rat.undo" )
 	undo.SetPlayer( player )
 
@@ -414,7 +414,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 		entity:SetAngles( elementAngle )
 		entity:Spawn()
 
-		self:RandomizeEntityModel( entity )
+		self:RandomizeProp( entity )
 
 		-- Freeze prop
 		if ( tobool( self:GetClientNumber( "spawnFrozen" ) ) ) then
@@ -443,6 +443,34 @@ function TOOL:SpawnPropTable( player, trace, sid )
 	undo.Finish()
 end
 
+-- Removes input entity
+function TOOL:RemoveProp( entity )
+	if ( !self:IsSupportedPropAndValid( entity ) ) then return end
+
+	-- Remove all constraints (this stops ropes from hanging around)
+	constraint.RemoveAll( entity )
+
+	entity:Remove()
+
+	-- Remove Effect
+	local effect = EffectData()
+	effect:SetOrigin( entity:GetPos() )
+	effect:SetEntity( entity )
+	util.Effect( "entity_remove", effect, true, true )
+end
+
+-- Checks if input entity is a kind of prop that is supported by this tool
+function TOOL:IsSupportedPropAndValid( entity )
+	if ( !IsValid( entity ) ) then return false end
+	local entityClass = entity:GetClass()
+
+	if ( entityClass == "prop_physics" || entityClass == "prop_effect" || entityClass == "prop_dynamic" || entity:IsRagdoll() ) then
+		return true
+	else
+		return false
+	end
+end
+
 
 
 function TOOL:LeftClick( trace )
@@ -458,18 +486,37 @@ end
 
 function TOOL:RightClick( trace )
 	if ( SERVER ) then
-		-- Randomize entity under crosshair
-		self:RandomizeEntityModel( trace.Entity )
+		local sphereRadius = self:GetClientNumber( "sphereRadius" )
+
+		if ( sphereRadius == 0 ) then
+			-- Randomize entity under crosshair
+			self:RandomizeProp( trace.Entity )
+		else
+			-- Randomize entities found within sphere volume
+			local foundEnts = ents.FindInSphere( trace.HitPos, sphereRadius )
+
+			for i, entity in pairs( foundEnts ) do
+				self:RandomizeProp( entity )
+			end
+		end
 	end
 	return true
 end
 
 function TOOL:Reload( trace )
 	if ( SERVER ) then
-		local foundEnts = ents.FindInSphere( trace.HitPos, self:GetClientNumber( "sphereRadius" ) )
-		-- Randomize entities within sphere volume
-		for i, entity in pairs( foundEnts ) do
-			self:RandomizeEntityModel( entity )
+		local sphereRadius = self:GetClientNumber( "sphereRadius" )
+
+		if ( sphereRadius == 0 ) then
+			-- Remove entity under crosshair
+			self:RemoveProp( trace.Entity )
+		else
+			-- Remove entities found within sphere volume
+			local foundEnts = ents.FindInSphere( trace.HitPos, sphereRadius )
+
+			for i, entity in pairs( foundEnts ) do
+				self:RemoveProp( entity )
+			end
 		end
 	end
 	return true
@@ -524,7 +571,7 @@ local function CheckModelPath( inputDirectory )
 	end
 end
 
--- Creates icons for the model list
+-- Creates icons for the prop list
 local function AddSpawnIcon( inputListPanel, inputModelPath ) --------------------------------------------------------------------
 	for i, path in ipairs( CheckModelPath( inputModelPath ) ) do
 		local ListItem = inputListPanel:Add( "SpawnIcon" )
@@ -612,7 +659,11 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 		-- end
 
 		-- Render sphere for sphere volume
-		render.DrawWireframeSphere( trace.HitPos, LocalPlayer():GetTool():GetClientNumber( "sphereRadius" ), 10, 10, Color( 0, 255, 255, 255 ), true )
+		local sphereRadius = LocalPlayer():GetTool():GetClientNumber( "sphereRadius" )
+
+		if ( sphereRadius > 0 ) then
+			render.DrawWireframeSphere( trace.HitPos, sphereRadius, 10, 10, Color( 0, 255, 255, 255 ), true )
+		end
 	end
 end)
 
@@ -882,7 +933,7 @@ local function MakeCollapsible( panel, titleString, toggleConVar )
 	return dList
 end
 
-local function ChangeAndColorModelCount( panel )
+local function ChangeAndColorPropCount( panel )
 	if ( GetConVar( "rat_xAmount" ) == nil || GetConVar( "rat_yAmount" ) == nil || GetConVar( "rat_zAmount" ) == nil ) then return end
 	local xAmount = GetConVar( "rat_xAmount" ):GetInt()
 	local yAmount = GetConVar( "rat_yAmount" ):GetInt()
@@ -890,7 +941,7 @@ local function ChangeAndColorModelCount( panel )
 
 	local totalAmount = xAmount * yAmount * zAmount
 
-	panel:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.numOfObjects" ) .. totalAmount )
+	panel:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.numOfProps" ) .. totalAmount )
 
 	if ( totalAmount < 750 ) then
 		panel:SetColor( Color( 250, 250, 250 ) ) -- White
@@ -953,19 +1004,19 @@ function TOOL.BuildCPanel( cpanel )
 	cpanel:ControlHelp( "" )
 
 
-	-- [[----------------------------------------------------------------]] -- Model List Description
+	-- [[----------------------------------------------------------------]] -- Prop List Description
 	local collapsible = MakeCollapsible( cpanel, "#tool.rat.listHelpTitle" )
 
 	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp1" )
 	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp2" )
 	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp3" )
-	-- MakeText( collapsible, Color( 50, 50, 50 ), "- Left click on one of the model icons to be able to configure and constrain the bodygroups and skins it will be spawned with." )
+	-- MakeText( collapsible, Color( 50, 50, 50 ), "- Left click on one of the icons to be able to configure and constrain the bodygroups and skins it will be spawned with." )
 	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp4" )
 	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp5" )
 	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp6" )
 
 
-	-- [[----------------------------------------------------------------]] -- Model Grid List
+	-- [[----------------------------------------------------------------]] -- Prop Grid List
 	cpanel:TextEntry( "#tool.rat.mdlAdd", "rat_mdlName" )
 
 
@@ -1008,7 +1059,7 @@ function TOOL.BuildCPanel( cpanel )
 	end
 
 	-- Some weird positioning here for everything to be able to reference what it needs to but still be in the right order in the ui
-	-- The function needs to be made before it gets referenced, but also after the ui it is referencing, and the button needs to be added before the model list
+	-- The function needs to be made before it gets referenced, but also after the ui it is referencing, and the button needs to be added before the prop list
 	cpanel:AddItem( AddButton )
 	cpanel:AddItem( Scroll )
 
@@ -1038,30 +1089,30 @@ function TOOL.BuildCPanel( cpanel )
 	MakeNumberWang( cpanel, "#tool.rat.sphereRadius", "rat_sphereRadius", 0, 9999, 0 )
 	MakeNumberWang( cpanel, "Push array away from surface", "rat_pushAwayFromSurface", 0, 9999, 0 )
 
-	-- [[----------------------------------------------------------------]] -- Model Counter
-	local NumberOfModelsText = vgui.Create( "DLabel" )
-	NumberOfModelsText:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.numOfObjects" ) .. "1" )
-	NumberOfModelsText:SetFont( "DermaDefaultBold" )
-	NumberOfModelsText:SetTall( 20 )
-	NumberOfModelsText:SetColor( Color( 250, 250, 250 ) )
-	NumberOfModelsText:SetWrap( true )
-	NumberOfModelsText.Paint = function()
+	-- [[----------------------------------------------------------------]] -- Prop Counter
+	local NumberOfPropsText = vgui.Create( "DLabel" )
+	NumberOfPropsText:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.numOfProps" ) .. "1" )
+	NumberOfPropsText:SetFont( "DermaDefaultBold" )
+	NumberOfPropsText:SetTall( 20 )
+	NumberOfPropsText:SetColor( Color( 250, 250, 250 ) )
+	NumberOfPropsText:SetWrap( true )
+	NumberOfPropsText.Paint = function()
 		draw.RoundedBoxEx( 4, 0, 0, 200, 19, Color( 127, 127, 127 ), true, true, false, false )
 	end
-	cpanel:AddItem( NumberOfModelsText )
+	cpanel:AddItem( NumberOfPropsText )
 
-	ChangeAndColorModelCount( NumberOfModelsText ) -- Make sure the text shows the correct count
+	ChangeAndColorPropCount( NumberOfPropsText ) -- Make sure the text shows the correct count
 
 	-- Only reliable way I found to update this value was a bunch of callbacks
 	-- If using GetConVar within DNumberWang:OnValueChanged it would return the previous value
 	cvars.AddChangeCallback("rat_xAmount", function( convarName, valueOld, valueNew )
-		ChangeAndColorModelCount( NumberOfModelsText )
+		ChangeAndColorPropCount( NumberOfPropsText )
 	end, "rat_xAmount_callback")
 	cvars.AddChangeCallback("rat_yAmount", function( convarName, valueOld, valueNew )
-		ChangeAndColorModelCount( NumberOfModelsText )
+		ChangeAndColorPropCount( NumberOfPropsText )
 	end, "rat_yAmount_callback")
 	cvars.AddChangeCallback("rat_zAmount", function( convarName, valueOld, valueNew )
-		ChangeAndColorModelCount( NumberOfModelsText )
+		ChangeAndColorPropCount( NumberOfPropsText )
 	end, "rat_zAmount_callback")
 
 	-- Only way I managed to get spacing on the top in this configuration was to make a spacer object sadly
