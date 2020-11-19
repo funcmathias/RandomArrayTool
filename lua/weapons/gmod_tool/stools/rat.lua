@@ -141,10 +141,10 @@ if CLIENT then
 end
 
 if SERVER then
-	-- Register the Network String
+	-- Register the network string
 	util.AddNetworkString( "sendTables" )
 
-	-- When the server receives the clients Network information
+	-- When the server receives the clients network information
 	net.Receive( "sendTables", function( len, player )
 		local sid = player:SteamID()
 		modelPathTable[sid] = net.ReadTable()
@@ -157,9 +157,10 @@ end
 
 -- Checks the normal trace vs a trace against a plane at the players feet, if the plane trace is closer it will override the input trace position and normal
 function TOOL:CheckPlaneTrace( trace )
-	local player = self:GetOwner()
-	if ( !tobool( self:GetClientNumber( "localGroundPlane" ) ) ) then return end
+	local localGroundPlane = tobool( self:GetClientNumber( "localGroundPlane" ) )
+	if ( !localGroundPlane ) then return end
 
+	local player = self:GetOwner()
 	local eyePosition = player:EyePos()
 	local eyeAngles = player:EyeAngles():Forward()
 	local playerPosition = player:GetPos()
@@ -173,8 +174,6 @@ function TOOL:CheckPlaneTrace( trace )
 	-- Measure distance of the normal trace and the plane trace to compare
 	local traceHitDistance = eyePosition:DistToSqr( trace.HitPos )
 	local planeHitDistance = eyePosition:DistToSqr( planeHitPosition )
-	-- print( "traceHitDistance " .. traceHitDistance )
-	-- print( "planeHitDistance " .. planeHitDistance )
 
 	-- If plane hit is closer than trace hit then override the trace hit position and normal so it will be used instead
 	if ( planeHitDistance < traceHitDistance ) then
@@ -225,9 +224,7 @@ function TOOL:RandomizeTransformArrayPosition( transformArray )
 	local yOffsetRandom = self:GetClientNumber( "yOffsetRandom" )
 	local zOffsetRandom = self:GetClientNumber( "zOffsetRandom" )
 
-	if ( xOffsetRandom == 0 && yOffsetRandom == 0 && zOffsetRandom == 0 ) then
-		return
-	end
+	if ( xOffsetRandom == 0 && yOffsetRandom == 0 && zOffsetRandom == 0 ) then return end
 
 	-- Offset each position in array
 	for i, transform in pairs( transformArray ) do
@@ -253,8 +250,8 @@ function TOOL:ModifyTransformArray( trace, transformArray ) -- Calculates the po
 	local yArrayRotation = self:GetClientNumber( "yArrayRotation" )
 	local zArrayRotation = self:GetClientNumber( "zArrayRotation" )
 
-	local ignoreSurfaceAngle = self:GetClientNumber( "ignoreSurfaceAngle" )
-	local facePlayerZ = self:GetClientNumber( "facePlayerZ" )
+	local ignoreSurfaceAngle = tobool( self:GetClientNumber( "ignoreSurfaceAngle" ) )
+	local facePlayerZ = tobool( self:GetClientNumber( "facePlayerZ" ) )
 	local pushAwayFromSurface = self:GetClientNumber( "pushAwayFromSurface" )
 
 	-- Calcultate the array offset based on the pivot values
@@ -273,8 +270,8 @@ function TOOL:ModifyTransformArray( trace, transformArray ) -- Calculates the po
 	end
 
 	-- Ignore surface angle and set it do a default world angle, or face player on z axis
-	if ( tobool( ignoreSurfaceAngle ) ) then
-		if ( tobool( facePlayerZ ) ) then
+	if ( ignoreSurfaceAngle ) then
+		if ( facePlayerZ ) then
 			tempAngle = Angle( 0, self:GetOwner():EyeAngles().Y, 0 )
 		else
 			tempAngle = Angle()
@@ -344,7 +341,12 @@ end
 
 -- Randomizes input entity in multiple ways
 function TOOL:RandomizeProp( entity )
-	if ( !self:IsSupportedPropAndValid( entity ) ) then return end
+	if ( !self:IsSupportedPropAndValid( entity ) ) then return false end
+
+	local randomSkin = tobool( self:GetClientNumber( "randomSkin" ) )
+	local randomBodygroup = tobool( self:GetClientNumber( "randomBodygroup" ) )
+	local randomColor = tobool( self:GetClientNumber( "randomColor" ) )
+	local randomSkip = self:GetClientNumber( "randomSkip" )
 
 	local entityClass = entity:GetClass()
 	if ( entityClass == "prop_effect" ) then entity = entity.AttachedEntity end -- Needed to change prop_effects when tracing directly
@@ -354,29 +356,33 @@ function TOOL:RandomizeProp( entity )
 	-- print( "entity number of bodygroup" .. entity:GetNumBodyGroups() )
 
 	-- Randomize skin
-	if ( tobool( self:GetClientNumber( "randomSkin" ) ) && entity:SkinCount() != nil ) then
+	if ( randomSkin ) then
 		entity:SetSkin( math.random( 0, entity:SkinCount() - 1 ) )
 	end
 
 	-- Randomize body groups
-	if ( tobool( self:GetClientNumber( "randomBodygroup" ) ) && entity:GetNumBodyGroups() != nil ) then
+	if ( randomBodygroup ) then
 		for i = 0, entity:GetNumBodyGroups() do
-			if ( i <= self:GetClientNumber( "randomSkip" ) ) then continue end
+			if ( i <= randomSkip ) then continue end
 			entity:SetBodygroup( i, math.random( 0, entity:GetBodygroupCount( i ) - 1 ) )
 		end
 	end
 
 	-- Randomize color
-	if ( tobool( self:GetClientNumber( "randomColor" ) ) ) then
+	if ( randomColor ) then
 		entity:SetColor( ColorRand() )
 	end
+
+	return true
 end
 
 -- Spawns props from positions in a table
 function TOOL:SpawnPropTable( player, trace, sid )
+	local spawnedAnyProps = false
+
 	if ( next( modelPathTable ) == nil ) then return end
 	if ( next( modelPathTable[sid] ) == nil ) then return end
-	local transformTable = self:CreateLocalTransformArray();
+	local transformTable = self:CreateLocalTransformArray()
 	if ( next( transformTable ) == nil ) then return end
 
 	-- Check if we should use normal or plane trace, modifies original trace data
@@ -389,6 +395,8 @@ function TOOL:SpawnPropTable( player, trace, sid )
 	local elementAngle = Angle()
 
 	local spawnChance = self:GetClientNumber( "spawnChance" )
+	local spawnFrozen = tobool( self:GetClientNumber( "spawnFrozen" ) )
+	local freezeRootBoneOnly = tobool( self:GetClientNumber( "freezeRootBoneOnly" ) )
 
 	undo.Create( "rat_array_prop" )
 	undo.SetCustomUndoText( "#tool.rat.undo" )
@@ -404,7 +412,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 
 		local modelPath = modelPathTable[sid][math.random( #modelPathTable[sid] )]
 		local entityType = "prop_effect"
-		if ( util.IsValidProp( modelPath ) ) then entityType = "prop_physics" end
+		if ( util.IsValidProp( modelPath ) ) then entityType = "prop_physics" end -- Think the valid check includes checking for collision, so a model without collision will be a prop_effect
 		if ( util.IsValidRagdoll( modelPath ) ) then entityType = "prop_ragdoll" end
 
 		local entity = ents.Create( entityType )
@@ -416,14 +424,14 @@ function TOOL:SpawnPropTable( player, trace, sid )
 
 		self:RandomizeProp( entity )
 
-		-- Freeze prop
-		if ( tobool( self:GetClientNumber( "spawnFrozen" ) ) ) then
+		-- Freeze prop (prop_effect doesn't move so don't freeze them)
+		if ( spawnFrozen && entityType != "prop_effect" ) then
 			local phys = entity:GetPhysicsObject()
 			if ( phys:IsValid() ) then
 				phys:EnableMotion( false )
 				player:AddFrozenPhysicsObject( entity, phys )
 			end
-			if ( entity:IsRagdoll() && !tobool( self:GetClientNumber( "freezeRootBoneOnly" ) ) ) then
+			if ( entity:IsRagdoll() && !freezeRootBoneOnly ) then
 				local boneCount = entity:GetPhysicsObjectCount()
 
 				for bone = 1, boneCount - 1 do
@@ -438,25 +446,37 @@ function TOOL:SpawnPropTable( player, trace, sid )
 		-- Add entity to undo and cleanup
 		undo.AddEntity( entity )
 		self:GetOwner():AddCleanup( "rat_arrays", entity )
+
+		spawnedAnyProps = true
 	end
 
 	undo.Finish()
+
+	return spawnedAnyProps
 end
 
 -- Removes input entity
 function TOOL:RemoveProp( entity )
-	if ( !self:IsSupportedPropAndValid( entity ) ) then return end
+	if ( !self:IsSupportedPropAndValid( entity ) ) then return false end
 
 	-- Remove all constraints (this stops ropes from hanging around)
 	constraint.RemoveAll( entity )
 
-	entity:Remove()
+	-- Wait just a little bit before removing the model so the remove effect will show every time
+	timer.Simple( 0.1, function() if ( IsValid( entity ) ) then entity:Remove() end end )
 
-	-- Remove Effect
+	-- Make it non solid and invisible since it's not removed instantly
+	entity:SetNotSolid( true )
+	entity:SetMoveType( MOVETYPE_NONE )
+	entity:SetNoDraw( true )
+
+	-- Particle effect for removing
 	local effect = EffectData()
 	effect:SetOrigin( entity:GetPos() )
 	effect:SetEntity( entity )
 	util.Effect( "entity_remove", effect, true, true )
+
+	return true
 end
 
 -- Checks if input entity is a kind of prop that is supported by this tool
@@ -479,47 +499,52 @@ function TOOL:LeftClick( trace )
 		local sid = player:SteamID()
 
 		-- Spawns the props
-		self:SpawnPropTable( player, trace, sid )
+		return self:SpawnPropTable( player, trace, sid )
 	end
-	return true
 end
 
 function TOOL:RightClick( trace )
 	if ( SERVER ) then
+		local randomizedAnyProps = false
 		local sphereRadius = self:GetClientNumber( "sphereRadius" )
 
 		if ( sphereRadius == 0 ) then
-			-- Randomize entity under crosshair
-			self:RandomizeProp( trace.Entity )
+			-- Randomize prop under crosshair
+			randomizedAnyProps = self:RandomizeProp( trace.Entity )
 		else
-			-- Randomize entities found within sphere volume
+			-- Randomize props found within sphere volume
 			local foundEnts = ents.FindInSphere( trace.HitPos, sphereRadius )
 
+			-- Run randomization loop and save if any were successful
 			for i, entity in pairs( foundEnts ) do
-				self:RandomizeProp( entity )
+				if ( self:RandomizeProp( entity ) ) then randomizedAnyProps = true end
 			end
 		end
+
+		return randomizedAnyProps
 	end
-	return true
 end
 
 function TOOL:Reload( trace )
 	if ( SERVER ) then
+		local removedAnyProps = false
 		local sphereRadius = self:GetClientNumber( "sphereRadius" )
 
 		if ( sphereRadius == 0 ) then
-			-- Remove entity under crosshair
-			self:RemoveProp( trace.Entity )
+			-- Remove prop under crosshair
+			removedAnyProps = self:RemoveProp( trace.Entity )
 		else
-			-- Remove entities found within sphere volume
+			-- Remove props found within sphere volume
 			local foundEnts = ents.FindInSphere( trace.HitPos, sphereRadius )
 
+			-- Run remove loop and save if any were successful
 			for i, entity in pairs( foundEnts ) do
-				self:RemoveProp( entity )
+				if ( self:RemoveProp( entity ) ) then removedAnyProps = true end
 			end
 		end
+
+		return removedAnyProps
 	end
-	return true
 end
 
 
