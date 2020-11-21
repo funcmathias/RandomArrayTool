@@ -12,6 +12,7 @@ local modelPathTable = {}
 
 TOOL.ClientConVar["spawnFrozen"] = "1"
 TOOL.ClientConVar["freezeRootBoneOnly"] = "1"
+TOOL.ClientConVar["noCollide"] = "0"
 TOOL.ClientConVar["randomColor"] = "0"
 TOOL.ClientConVar["randomSkin"] = "1"
 TOOL.ClientConVar["randomBodygroup"] = "1"
@@ -81,6 +82,7 @@ if CLIENT then
 
 	language.Add( "tool.rat.spawnFrozen", "Spawn frozen" )
 	language.Add( "tool.rat.freezeRootBoneOnly", "Freeze only root bone of ragdolls" )
+	language.Add( "tool.rat.noCollide", "No collide (world only)" )
 	language.Add( "tool.rat.randomColor", "Apply random colors" )
 	language.Add( "tool.rat.randomSkin", "Randomize skins" )
 	language.Add( "tool.rat.randomBodygroup", "Randomize bodygroups" )
@@ -397,6 +399,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 	local spawnChance = self:GetClientNumber( "spawnChance" )
 	local spawnFrozen = tobool( self:GetClientNumber( "spawnFrozen" ) )
 	local freezeRootBoneOnly = tobool( self:GetClientNumber( "freezeRootBoneOnly" ) )
+	local noCollide = tobool( self:GetClientNumber( "noCollide" ) )
 
 	undo.Create( "rat_array_prop" )
 	undo.SetCustomUndoText( "#tool.rat.undo" )
@@ -441,6 +444,10 @@ function TOOL:SpawnPropTable( player, trace, sid )
 					player:AddFrozenPhysicsObject( entity, physBone )
 				end
 			end
+		end
+
+		if ( noCollide && entityType != "prop_effect" ) then
+			entity:SetCollisionGroup( COLLISION_GROUP_WORLD )
 		end
 
 		-- Add entity to undo and cleanup
@@ -1017,6 +1024,7 @@ function TOOL.BuildCPanel( cpanel )
 
 	MakeCheckbox( cpanel, "#tool.rat.spawnFrozen", "rat_spawnFrozen" )
 	MakeCheckbox( cpanel, "#tool.rat.freezeRootBoneOnly", "rat_freezeRootBoneOnly", "rat_spawnFrozen" )
+	MakeCheckbox( cpanel, "#tool.rat.noCollide", "rat_noCollide" )
 	MakeCheckbox( cpanel, "#tool.rat.randomColor", "rat_randomColor" )
 	MakeCheckbox( cpanel, "#tool.rat.randomSkin", "rat_randomSkin" )
 	MakeCheckbox( cpanel, "#tool.rat.randomBodygroup", "rat_randomBodygroup" )
