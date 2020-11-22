@@ -195,23 +195,29 @@ function TOOL:CreateLocalTransformArray()
 	local ySpacingBase = self:GetClientNumber( "ySpacingBase" )
 	local zSpacingBase = self:GetClientNumber( "zSpacingBase" )
 
+	-- Calculate the array positions for a single axis at a time
+	local function CalculateSingleAxisPoints( pointAmount, pointSpacing )
+		local pointTable = {}
+
+		for i = 0, pointAmount - 1 do
+			pointTable[i] = pointSpacing * i
+		end
+
+		return pointTable
+	end
+
+	local xTable = CalculateSingleAxisPoints( xAmount, xSpacingBase )
+	local yTable = CalculateSingleAxisPoints( yAmount, ySpacingBase )
+	local zTable = CalculateSingleAxisPoints( zAmount, zSpacingBase )
 
 	local tempTable = {}
 	local i = 0
 
-	-- Calculate the array positions
-	for x = 0, xAmount - 1 do
-		tempTable[i] = Vector( xSpacingBase * x, 0, 0 )
-		i = i + 1
-
-		for y = 0, yAmount - 1 do
-			if (y != 0) then -- This for loop needs to skip the first cycle without affecting the next for loop
-				tempTable[i] = Vector( xSpacingBase * x, ySpacingBase * y, 0 )
-				i = i + 1
-			end
-
-			for z = 1, zAmount - 1 do
-				tempTable[i] = Vector( xSpacingBase * x, ySpacingBase * y, zSpacingBase * z )
+	-- Calculate the full array from each axis table
+	for x = 0, #xTable do
+		for y = 0, #yTable do
+			for z = 0, #zTable do
+				tempTable[i] = Vector( xTable[x], yTable[y], zTable[z] )
 				i = i + 1
 			end
 		end
@@ -789,16 +795,11 @@ function TOOL:DrawToolScreen( width, height )
 	draw.SimpleText( "Array", "DermaLarge", 10, 40, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP )
 	draw.SimpleText( "Tool", "DermaLarge", 10, 70, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP )
 
-	-- Rounding the trace positions, no decimals
-	local trace = self:GetOwner():GetEyeTrace()
-	local xPosition = trace.HitPos.X + (2^52 + 2^51) - (2^52 + 2^51)
-	local yPosition = trace.HitPos.Y + (2^52 + 2^51) - (2^52 + 2^51)
-	local zPosition = trace.HitPos.Z + (2^52 + 2^51) - (2^52 + 2^51)
-
 	-- Cursor world position text, top right
-	draw.SimpleText( "X " .. xPosition, "DermaLarge", 246, 10, xColor, TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP )
-	draw.SimpleText( "Y " .. yPosition, "DermaLarge", 246, 40, yColor, TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP )
-	draw.SimpleText( "Z " .. zPosition, "DermaLarge", 246, 70, zColor, TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP )
+	local trace = self:GetOwner():GetEyeTrace()
+	draw.SimpleText( "X " .. math.Round( trace.HitPos.X ), "DermaLarge", 246, 10, xColor, TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP )
+	draw.SimpleText( "Y " .. math.Round( trace.HitPos.Y ), "DermaLarge", 246, 40, yColor, TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP )
+	draw.SimpleText( "Z " .. math.Round( trace.HitPos.Z ), "DermaLarge", 246, 70, zColor, TEXT_ALIGN_RIGHT, TEXT_ALIGN_TOP )
 
 	-- Set up needed data for screen axis visualization, and correcting the base rotation
 	local baseEyeAngle = self:GetOwner():EyeAngles()
