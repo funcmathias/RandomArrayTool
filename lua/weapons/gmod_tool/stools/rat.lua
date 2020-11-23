@@ -7,6 +7,8 @@ TOOL.Category = "func_Mathias"
 local toolActive = false
 local stringSpacing = "   "
 
+local maxArrayPosition = Vector()
+
 -- Model sting paths table
 local modelPathTable = {}
 
@@ -25,8 +27,8 @@ TOOL.ClientConVar["facePlayerZ"] = "0"
 TOOL.ClientConVar["localGroundPlane"] = "0"
 TOOL.ClientConVar["previewAxis"] = "1"
 TOOL.ClientConVar["previewBox"] = "0"
-TOOL.ClientConVar["pushAwayFromSurface"] = "0"
 TOOL.ClientConVar["sphereRadius"] = "0"
+TOOL.ClientConVar["pushAwayFromSurface"] = "0"
 
 TOOL.ClientConVar["mdlName"] = ""
 
@@ -34,6 +36,9 @@ TOOL.ClientConVar["mdlName"] = ""
 TOOL.ClientConVar["pointTransformExpanded"] = "1"
 TOOL.ClientConVar["arrayTransformsExpanded"] = "0"
 TOOL.ClientConVar["randomPointTransformsExpanded"] = "0"
+
+TOOL.ClientConVar["arrayType"] = "1"
+TOOL.ClientConVar["arrayCount"] = "1"
 
 -- X axis ConVars
 TOOL.ClientConVar["xAmount"] = "3"
@@ -98,16 +103,26 @@ if CLIENT then
 	language.Add( "tool.rat.listHelp5", "- Tip: Adding multiple copies of the same prop will increase it's chance of being spawned." )
 	language.Add( "tool.rat.listHelp6", "- Tip: There is no option for saving your list but you can create a custom spawnlist to keep all the desired props in one place for easy adding to this list." )
 
+	language.Add( "tool.rat.mdlAdd", "Add prop by path" )
+	language.Add( "tool.rat.mdlAddButton", "Add to list from path" )
+	language.Add( "tool.rat.mdlClearButton", "Clear prop list" )
+
 	language.Add( "tool.rat.ignoreSurfaceAngle", "Ignore surface angle" )
 	language.Add( "tool.rat.facePlayerZ", "Face player on Z axis" )
 	language.Add( "tool.rat.localGroundPlane", "Local player ground plane" )
 	language.Add( "tool.rat.previewPosition", "Show position previews" )
 	language.Add( "tool.rat.previewOffset", "Show random position offset" )
 	language.Add( "tool.rat.sphereRadius", "Editing sphere radius" )
+	language.Add( "tool.rat.pushAwayFromSurface", "Push array away from surface" )
 
-	language.Add( "tool.rat.mdlAdd", "Add prop by path" )
-	language.Add( "tool.rat.mdlAddButton", "Add to list from path" )
-	language.Add( "tool.rat.mdlClearButton", "Clear prop list" )
+	language.Add( "tool.rat.arrayType", "Array type" )
+	language.Add( "tool.rat.arrayTypeFull", "Full" )
+	language.Add( "tool.rat.arrayTypeHollow", "Hollow" )
+	language.Add( "tool.rat.arrayTypeOutline", "Outline" )
+	language.Add( "tool.rat.arrayTypeCheckered", "Checkered" )
+	language.Add( "tool.rat.arrayTypeCheckeredInv", "Checkered inverted" )
+	language.Add( "tool.rat.arrayType2DCheckered", "2D Checkered" )
+	language.Add( "tool.rat.arrayType2DCheckeredInv", "2D Checkered inverted" )
 
 	language.Add( "tool.rat.numOfProps", "Number of props: " )
 	language.Add( "tool.rat.numberIn", "Number in " )
@@ -186,14 +201,16 @@ function TOOL:CheckPlaneTrace( trace )
 end
 
 -- Calculates the position array for both preview and spawning
-function TOOL:CreateLocalTransformArray()
-	local xAmount = self:GetClientNumber( "xAmount" )
-	local yAmount = self:GetClientNumber( "yAmount" )
-	local zAmount = self:GetClientNumber( "zAmount" )
+local function CreateLocalTransformArray()
+	local xAmount = cvars.Number( "rat_xAmount" )
+	local yAmount = cvars.Number( "rat_yAmount" )
+	local zAmount = cvars.Number( "rat_zAmount" )
 
-	local xSpacingBase = self:GetClientNumber( "xSpacingBase" )
-	local ySpacingBase = self:GetClientNumber( "ySpacingBase" )
-	local zSpacingBase = self:GetClientNumber( "zSpacingBase" )
+	local xSpacingBase = cvars.Number( "rat_xSpacingBase" )
+	local ySpacingBase = cvars.Number( "rat_ySpacingBase" )
+	local zSpacingBase = cvars.Number( "rat_zSpacingBase" )
+
+	local arrayType = cvars.Number( "rat_arrayType" )
 
 	-- Calculate the array positions for a single axis at a time
 	local function CalculateSingleAxisPoints( pointAmount, pointSpacing )
@@ -210,6 +227,9 @@ function TOOL:CreateLocalTransformArray()
 	local yTable = CalculateSingleAxisPoints( yAmount, ySpacingBase )
 	local zTable = CalculateSingleAxisPoints( zAmount, zSpacingBase )
 
+	-- Saved for array pivot calculations later
+	maxArrayPosition = Vector( xTable[#xTable], yTable[#yTable], zTable[#zTable] )
+
 	local tempTable = {}
 	local i = 0
 
@@ -217,10 +237,31 @@ function TOOL:CreateLocalTransformArray()
 	for x = 0, #xTable do
 		for y = 0, #yTable do
 			for z = 0, #zTable do
-				tempTable[i] = Vector( xTable[x], yTable[y], zTable[z] )
-				i = i + 1
+				local topBottomOutline = ( x == 0 || y == 0 || x == #xTable || y == #yTable ) && ( z == 0 || z == #zTable )
+				local verticalSideLines = x == 0 && y == 0 || x == #xTable && y == #yTable || x == 0 && y == #yTable || y == 0 && x == #xTable
+
+				local outline = ( topBottomOutline || verticalSideLines ) && arrayType == 3
+				local hollow = ( x == 0 || x == #xTable || y == 0 || y == #yTable || z == 0 || z == #zTable  ) && arrayType == 2
+				local full = arrayType == 1
+
+				local xyCheckeredValue = ( x % 2 + y % 2 ) % 2
+				local xyCheckered = ( xyCheckeredValue == 0 ) && arrayType == 6
+				local xyCheckeredInverted = ( xyCheckeredValue == 1 ) && arrayType == 7
+				local xyzCheckered = ( ( xyCheckeredValue + z ) % 2 == 0 ) && arrayType == 4
+				local xyzCheckeredInverted = ( ( xyCheckeredValue + z ) % 2 == 1 ) && arrayType == 5
+
+				if ( full || hollow || outline || xyzCheckered || xyzCheckeredInverted || xyCheckered || xyCheckeredInverted ) then
+					tempTable[i] = Vector( xTable[x], yTable[y], zTable[z] )
+					i = i + 1
+				end
 			end
 		end
+	end
+
+	-- Check if the array count has changed and update the convar if so (triggering it's callbacks)
+	local arrayCount = cvars.Number( "rat_arrayCount" )
+	if ( arrayCount != i && CLIENT ) then
+		GetConVar( "rat_arrayCount" ):SetInt( i )
 	end
 
 	return tempTable
@@ -263,7 +304,7 @@ function TOOL:ModifyTransformArray( trace, transformArray ) -- Calculates the po
 	local pushAwayFromSurface = self:GetClientNumber( "pushAwayFromSurface" )
 
 	-- Calcultate the array offset based on the pivot values
-	local arrayPivot = Vector( xArrayPivot, yArrayPivot, zArrayPivot ) * transformArray[#transformArray]
+	local arrayPivot = Vector( xArrayPivot, yArrayPivot, zArrayPivot ) * maxArrayPosition
 
 	-- Correct the hit angle
 	local correctedHitAngle = trace.HitNormal:Angle()
@@ -390,7 +431,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 
 	if ( next( modelPathTable ) == nil ) then return end
 	if ( next( modelPathTable[sid] ) == nil ) then return end
-	local transformTable = self:CreateLocalTransformArray()
+	local transformTable = CreateLocalTransformArray()
 	if ( next( transformTable ) == nil ) then return end
 
 	-- Check if we should use normal or plane trace, modifies original trace data
@@ -649,9 +690,10 @@ end
 
 -- Render hook for drawing visualizations for array positions and some more
 hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( bDrawingDepth, bDrawingSkybox )
-	if ( toolActive && LocalPlayer():GetTool() && !bDrawingSkybox ) then
-		local previewAxis = tobool( LocalPlayer():GetTool():GetClientNumber( "previewAxis" ) )
-		local previewBox = tobool( LocalPlayer():GetTool():GetClientNumber( "previewBox" ) )
+	local playerTool = LocalPlayer():GetTool()
+	if ( toolActive && playerTool && !bDrawingSkybox ) then
+		local previewAxis = tobool( playerTool:GetClientNumber( "previewAxis" ) )
+		local previewBox = tobool( playerTool:GetClientNumber( "previewBox" ) )
 
 		local trace = LocalPlayer():GetEyeTrace()
 		-- Check if we should use normal or plane trace, modifies original trace data
@@ -659,11 +701,11 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 
 		-- Render per position visualization
 		if ( previewAxis || previewBox ) then
-			local transformTable = LocalPlayer():GetTool():CreateLocalTransformArray()
+			local transformTable = CreateLocalTransformArray()
 			if ( next( transformTable ) == nil ) then return end
 
 			-- LocalPlayer():GetTool():RandomizeTransformArrayPosition( transformTable ) -- For easy debugging of random positions
-			local elementAngle = LocalPlayer():GetTool():ModifyTransformArray( trace, transformTable )
+			local elementAngle = playerTool:ModifyTransformArray( trace, transformTable )
 			-- elementAngle = LocalPlayer():GetTool():RandomizeRotation( elementAngle ) -- For easy debugging of random rotations
 
 			for i, transform in pairs( transformTable ) do
@@ -697,7 +739,7 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 		-- end
 
 		-- Render sphere for sphere volume
-		local sphereRadius = LocalPlayer():GetTool():GetClientNumber( "sphereRadius" )
+		local sphereRadius = playerTool:GetClientNumber( "sphereRadius" )
 
 		if ( sphereRadius > 0 ) then
 			render.DrawWireframeSphere( trace.HitPos, sphereRadius, 10, 10, Color( 0, 255, 255, 255 ), true )
@@ -966,19 +1008,12 @@ local function MakeCollapsible( panel, titleString, toggleConVar )
 	return dList
 end
 
-local function ChangeAndColorPropCount( panel )
-	if ( GetConVar( "rat_xAmount" ) == nil || GetConVar( "rat_yAmount" ) == nil || GetConVar( "rat_zAmount" ) == nil ) then return end
-	local xAmount = GetConVar( "rat_xAmount" ):GetInt()
-	local yAmount = GetConVar( "rat_yAmount" ):GetInt()
-	local zAmount = GetConVar( "rat_zAmount" ):GetInt()
+local function ChangeAndColorPropCount( panel, count )
+	panel:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.numOfProps" ) .. count )
 
-	local totalAmount = xAmount * yAmount * zAmount
-
-	panel:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.numOfProps" ) .. totalAmount )
-
-	if ( totalAmount < 750 ) then
+	if ( count < 750 ) then
 		panel:SetColor( Color( 250, 250, 250 ) ) -- White
-	elseif ( totalAmount < 1500 ) then
+	elseif ( count < 1500 ) then
 		panel:SetColor( Color( 255, 200, 90 ) ) -- Orange
 	else
 		panel:SetColor( Color( 255, 133, 127 ) ) -- Red
@@ -1011,6 +1046,7 @@ function TOOL:RebuildCPanel()
 	cvars.RemoveChangeCallback("rat_xAmount", "rat_xAmount_callback")
 	cvars.RemoveChangeCallback("rat_yAmount", "rat_yAmount_callback")
 	cvars.RemoveChangeCallback("rat_zAmount", "rat_zAmount_callback")
+	cvars.RemoveChangeCallback("rat_arrayCount", "rat_arrayCount_callback")
 	cvars.RemoveChangeCallback("rat_spawnFrozen", "rat_spawnFrozen_callback")
 	cvars.RemoveChangeCallback("rat_ignoreSurfaceAngle", "rat_ignoreSurfaceAngle_callback")
 
@@ -1121,7 +1157,35 @@ function TOOL.BuildCPanel( cpanel )
 	MakeCheckbox( cpanel, "#tool.rat.previewOffset", "rat_previewBox" )
 
 	MakeNumberWang( cpanel, "#tool.rat.sphereRadius", "rat_sphereRadius", 0, 9999, 0 )
-	MakeNumberWang( cpanel, "Push array away from surface", "rat_pushAwayFromSurface", 0, 9999, 0 )
+	MakeNumberWang( cpanel, "#tool.rat.pushAwayFromSurface", "rat_pushAwayFromSurface", 0, 9999, 0 )
+
+	local label = vgui.Create( "DLabel" )
+	label:SetText( "#tool.rat.arrayType" )
+	label:SetDark( true )
+	label:Dock( TOP )
+	cpanel:AddItem( label )
+
+	local dList = vgui.Create( "DPanelList" )
+	dList:Dock( TOP )
+	dList:DockMargin( 0, -10, 0, 0 )
+	cpanel:AddItem( dList )
+
+	local comboBox = vgui.Create( "DComboBox", dList )
+	comboBox:SetSize( 200, 20 )
+	comboBox:SetSortItems( false )
+	comboBox:Dock( NODOCK )
+	comboBox:AddChoice( "#tool.rat.arrayTypeFull" )
+	comboBox:AddChoice( "#tool.rat.arrayTypeHollow" )
+	comboBox:AddChoice( "#tool.rat.arrayTypeOutline" )
+	comboBox:AddChoice( "#tool.rat.arrayTypeCheckered" )
+	comboBox:AddChoice( "#tool.rat.arrayTypeCheckeredInv" )
+	comboBox:AddChoice( "#tool.rat.arrayType2DCheckered" )
+	comboBox:AddChoice( "#tool.rat.arrayType2DCheckeredInv" )
+	comboBox:ChooseOptionID( cvars.Number( "rat_arrayType" ) )
+	comboBox.OnSelect = function( self, index, value )
+		GetConVar( "rat_arrayType" ):SetInt( index )
+	end
+
 
 	-- [[----------------------------------------------------------------]] -- Prop Counter
 	local NumberOfPropsText = vgui.Create( "DLabel" )
@@ -1135,19 +1199,25 @@ function TOOL.BuildCPanel( cpanel )
 	end
 	cpanel:AddItem( NumberOfPropsText )
 
-	ChangeAndColorPropCount( NumberOfPropsText ) -- Make sure the text shows the correct count
+	ChangeAndColorPropCount( NumberOfPropsText, cvars.Number( "rat_arrayCount" ) ) -- Make sure the text shows the correct count
 
 	-- Only reliable way I found to update this value was a bunch of callbacks
 	-- If using GetConVar within DNumberWang:OnValueChanged it would return the previous value
 	cvars.AddChangeCallback("rat_xAmount", function( convarName, valueOld, valueNew )
-		ChangeAndColorPropCount( NumberOfPropsText )
+		CreateLocalTransformArray()
 	end, "rat_xAmount_callback")
 	cvars.AddChangeCallback("rat_yAmount", function( convarName, valueOld, valueNew )
-		ChangeAndColorPropCount( NumberOfPropsText )
+		CreateLocalTransformArray()
 	end, "rat_yAmount_callback")
 	cvars.AddChangeCallback("rat_zAmount", function( convarName, valueOld, valueNew )
-		ChangeAndColorPropCount( NumberOfPropsText )
+		CreateLocalTransformArray()
 	end, "rat_zAmount_callback")
+	cvars.AddChangeCallback("rat_arrayType", function( convarName, valueOld, valueNew )
+		CreateLocalTransformArray()
+	end, "rat_arrayType_callback")
+	cvars.AddChangeCallback("rat_arrayCount", function( convarName, valueOld, valueNew )
+		ChangeAndColorPropCount( NumberOfPropsText, tonumber( valueNew ) )
+	end, "rat_arrayCount_callback")
 
 	-- Only way I managed to get spacing on the top in this configuration was to make a spacer object sadly
 	local dListSpacing = vgui.Create( "DPanelList" ) ----
