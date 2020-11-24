@@ -981,6 +981,11 @@ local function MakeNumberWang( panel, titleString, convar, min, max, leftSpacing
 	label:DockMargin( 50, 0, 0, 0 )
 	label:Dock( TOP )
 
+	-- Callback to update wangs when preset changes
+	cvars.AddChangeCallback( convar, function( convarName, valueOld, valueNew )
+		numbox:SetValue( cvars.Number( convarName ) )
+	end, convar .. "_callback")
+
 	return dList
 end
 
@@ -1131,28 +1136,24 @@ function TOOL:RebuildCPanel()
 	modelPathTable = {}
 	updateServerTables()
 
-	-- May not be needed now that the callbacks have identifiers which means they'll override the old ones, but keeping it just in case
-	cvars.RemoveChangeCallback("rat_xAmount", "rat_xAmount_callback")
-	cvars.RemoveChangeCallback("rat_yAmount", "rat_yAmount_callback")
-	cvars.RemoveChangeCallback("rat_zAmount", "rat_zAmount_callback")
-	cvars.RemoveChangeCallback("rat_arrayCount", "rat_arrayCount_callback")
-	cvars.RemoveChangeCallback("rat_spawnFrozen", "rat_spawnFrozen_callback")
-	cvars.RemoveChangeCallback("rat_ignoreSurfaceAngle", "rat_ignoreSurfaceAngle_callback")
-	cvars.RemoveChangeCallback("rat_xGapInterval", "rat_xGapInterval_callback")
-	cvars.RemoveChangeCallback("rat_yGapInterval", "rat_yGapInterval_callback")
-	cvars.RemoveChangeCallback("rat_zGapInterval", "rat_zGapInterval_callback")
-	cvars.RemoveChangeCallback("rat_xGapStart", "rat_xGapStart_callback")
-	cvars.RemoveChangeCallback("rat_yGapStart", "rat_yGapStart_callback")
-	cvars.RemoveChangeCallback("rat_zGapStart", "rat_zGapStart_callback")
-
 	panel:Clear()
 	self.BuildCPanel( panel )
 
 	print("Rebuilt rat panel")
 end
 
+-- Create table of all tool ConVars, used for presets
+local ConVarsDefault = TOOL:BuildConVarList()
+-- Remove some ConVars we don't want from the preset list, easier than adding all we want
+ConVarsDefault["rat_arrayCount"] = nil
+ConVarsDefault["rat_pointTransformExpanded"] = nil
+ConVarsDefault["rat_arrayTransformsExpanded"] = nil
+ConVarsDefault["rat_randomPointTransformsExpanded"] = nil
+
 function TOOL.BuildCPanel( cpanel )
 	MakeText( cpanel, Color( 50, 50, 50 ), "#tool.rat.desc" )
+
+	cpanel:AddControl( "ComboBox", { MenuButton = 1, Folder = "rat", Options = { [ "#preset.default" ] = ConVarsDefault }, CVars = table.GetKeys( ConVarsDefault ) } )
 
 	MakeCheckbox( cpanel, "#tool.rat.spawnFrozen", "rat_spawnFrozen" )
 	MakeCheckbox( cpanel, "#tool.rat.freezeRootBoneOnly", "rat_freezeRootBoneOnly", "rat_spawnFrozen" )
@@ -1309,6 +1310,8 @@ function TOOL.BuildCPanel( cpanel )
 	end, "rat_zAmount_callback")
 	cvars.AddChangeCallback("rat_arrayType", function( convarName, valueOld, valueNew )
 		CreateLocalTransformArray()
+		-- Update dropdown when preset changes
+		comboBox:ChooseOptionID( cvars.Number( convarName ) )
 	end, "rat_arrayType_callback")
 	cvars.AddChangeCallback("rat_arrayCount", function( convarName, valueOld, valueNew )
 		ChangeAndColorPropCount( NumberOfPropsText, tonumber( valueNew ) )
