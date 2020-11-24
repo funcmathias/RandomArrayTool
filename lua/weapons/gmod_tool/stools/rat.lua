@@ -12,6 +12,7 @@ local maxArrayPosition = Vector()
 -- Model sting paths table
 local modelPathTable = {}
 
+-- Various tool setting ConVars
 TOOL.ClientConVar["spawnFrozen"] = "1"
 TOOL.ClientConVar["freezeRootBoneOnly"] = "1"
 TOOL.ClientConVar["noCollide"] = "0"
@@ -37,38 +38,59 @@ TOOL.ClientConVar["pointTransformExpanded"] = "1"
 TOOL.ClientConVar["arrayTransformsExpanded"] = "0"
 TOOL.ClientConVar["randomPointTransformsExpanded"] = "0"
 
+-- Array ConVars
 TOOL.ClientConVar["arrayType"] = "1"
 TOOL.ClientConVar["arrayCount"] = "1"
 
 -- X axis ConVars
 TOOL.ClientConVar["xAmount"] = "3"
+
 TOOL.ClientConVar["xSpacingBase"] = "50"
-TOOL.ClientConVar["xOffsetRandom"] = "0"
-TOOL.ClientConVar["xArrayPivot"] = "0.50"
 TOOL.ClientConVar["xRotationBase"] = "0"
+TOOL.ClientConVar["xGapInterval"] = "2"
+TOOL.ClientConVar["xGapSpacing"] = "0"
+TOOL.ClientConVar["xGapStart"] = "1"
+
+TOOL.ClientConVar["xArrayPivot"] = "0.50"
+TOOL.ClientConVar["xArrayRotation"] = "0"
+
+TOOL.ClientConVar["xOffsetRandom"] = "0"
 TOOL.ClientConVar["xRotationRandom"] = "0"
 TOOL.ClientConVar["xRotationRandomStepped"] = "0"
-TOOL.ClientConVar["xArrayRotation"] = "0"
+
 
 -- Y axis ConVars
 TOOL.ClientConVar["yAmount"] = "3"
+
 TOOL.ClientConVar["ySpacingBase"] = "50"
-TOOL.ClientConVar["yOffsetRandom"] = "0"
-TOOL.ClientConVar["yArrayPivot"] = "0.50"
 TOOL.ClientConVar["yRotationBase"] = "0"
+TOOL.ClientConVar["yGapInterval"] = "2"
+TOOL.ClientConVar["yGapSpacing"] = "0"
+TOOL.ClientConVar["yGapStart"] = "1"
+
+TOOL.ClientConVar["yArrayPivot"] = "0.50"
+TOOL.ClientConVar["yArrayRotation"] = "0"
+
+TOOL.ClientConVar["yOffsetRandom"] = "0"
 TOOL.ClientConVar["yRotationRandom"] = "0"
 TOOL.ClientConVar["yRotationRandomStepped"] = "0"
-TOOL.ClientConVar["yArrayRotation"] = "0"
+
 
 -- Z axis ConVars
 TOOL.ClientConVar["zAmount"] = "2"
+
 TOOL.ClientConVar["zSpacingBase"] = "50"
-TOOL.ClientConVar["zOffsetRandom"] = "0"
-TOOL.ClientConVar["zArrayPivot"] = "0.00"
 TOOL.ClientConVar["zRotationBase"] = "0"
+TOOL.ClientConVar["zGapInterval"] = "2"
+TOOL.ClientConVar["zGapSpacing"] = "0"
+TOOL.ClientConVar["zGapStart"] = "1"
+
+TOOL.ClientConVar["zArrayPivot"] = "0.00"
+TOOL.ClientConVar["zArrayRotation"] = "0"
+
+TOOL.ClientConVar["zOffsetRandom"] = "0"
 TOOL.ClientConVar["zRotationRandom"] = "0"
 TOOL.ClientConVar["zRotationRandomStepped"] = "0"
-TOOL.ClientConVar["zArrayRotation"] = "0"
 
 cleanup.Register( "rat_arrays" )
 
@@ -129,24 +151,28 @@ if CLIENT then
 
 	language.Add( "tool.rat.pointTransforms", "Array point transforms" )
 	language.Add( "tool.rat.pointSpacing", "Spacing" )
-	language.Add( "tool.rat.pointSpacingDescription", "Space between each array point." .. string.char(10) .. "Click text to reset!" )
+	language.Add( "tool.rat.pointSpacingDescription", "Space between each array point." .. string.char(10) .. "Click this text to reset values!" )
 	language.Add( "tool.rat.pointRotation", "Rotation" )
-	language.Add( "tool.rat.pointRotationDescription", "Rotation of all array points." .. string.char(10) .. "Click text to reset!" )
+	language.Add( "tool.rat.pointRotationDescription", "Rotation of all array points." .. string.char(10) .. "Click this text to reset values!" )
+	language.Add( "tool.rat.pointGaps", "Gaps" )
+	language.Add( "tool.rat.pointGapsDescription", "Add extra spacing every X number of rows." .. string.char(10) .. "Click this text to reset values!" )
+	language.Add( "tool.rat.pointGapsInterval", "Gap interval" )
+	language.Add( "tool.rat.pointGapsStart", "Gaps start" )
 
 	language.Add( "tool.rat.arrayTransforms", "Array origin transforms" )
 	language.Add( "tool.rat.arrayPivot", "Pivot" )
-	language.Add( "tool.rat.arrayPivotDescription", "Pivot of the array. 0.5 in all axes will center it to cursor." .. string.char(10) .. "Click text to reset!" )
+	language.Add( "tool.rat.arrayPivotDescription", "Pivot of the array. 0.5 in all axes will center it to cursor." .. string.char(10) .. "Click this text to reset values!" )
 	language.Add( "tool.rat.arrayRotation", "Rotation" )
-	language.Add( "tool.rat.arrayRotationDescription", "Rotation of the array origin." .. string.char(10) .. "Click text to reset!" )
+	language.Add( "tool.rat.arrayRotationDescription", "Rotation of the array origin." .. string.char(10) .. "Click this text to reset values!" )
 
 	language.Add( "tool.rat.randomPointTransforms", "Randomized array point transforms" )
 	language.Add( "tool.rat.randomPointSpacing", "Random offset" )
-	language.Add( "tool.rat.randomPointSpacingDescription", "Random position offset per array point." .. string.char(10) .. "Click text to reset!" )
+	language.Add( "tool.rat.randomPointSpacingDescription", "Random position offset per array point." .. string.char(10) .. "Click this text to reset values!" )
 	language.Add( "tool.rat.randomPointRotation", "Random rotation" )
-	language.Add( "tool.rat.randomPointRotationDescription", "Random rotation offset per array point." .. string.char(10) .. "Click text to reset!" )
+	language.Add( "tool.rat.randomPointRotationDescription", "Random rotation offset per array point." .. string.char(10) .. "Click this text to reset values!" )
 	language.Add( "tool.rat.randomPointRotationStepped", "Random stepped rotation" )
 	language.Add( "tool.rat.randomRotationSteppedDescription", "Random stepped rotation offset per array point." .. string.char(10) ..
-	"If you use 90 degrees for example, each point will be rotated any of 0, 90, 180 or 270 degrees." .. string.char(10) .. "Click text to reset!" )
+	"If you use 90 degrees for example, each point will be rotated any of 0, 90, 180 or 270 degrees." .. string.char(10) .. "Click this text to reset values!" )
 
 	language.Add( "tool.rat.xAxis", "X axis" )
 	language.Add( "tool.rat.yAxis", "Y axis" )
@@ -210,22 +236,40 @@ local function CreateLocalTransformArray()
 	local ySpacingBase = cvars.Number( "rat_ySpacingBase" )
 	local zSpacingBase = cvars.Number( "rat_zSpacingBase" )
 
+	local xGapInterval = cvars.Number( "rat_xGapInterval" )
+	local yGapInterval = cvars.Number( "rat_yGapInterval" )
+	local zGapInterval = cvars.Number( "rat_zGapInterval" )
+
+	local xGapSpacing = cvars.Number( "rat_xGapSpacing" )
+	local yGapSpacing = cvars.Number( "rat_yGapSpacing" )
+	local zGapSpacing = cvars.Number( "rat_zGapSpacing" )
+
+	local xGapStart = cvars.Number( "rat_xGapStart" )
+	local yGapStart = cvars.Number( "rat_yGapStart" )
+	local zGapStart = cvars.Number( "rat_zGapStart" )
+
 	local arrayType = cvars.Number( "rat_arrayType" )
 
 	-- Calculate the array positions for a single axis at a time
-	local function CalculateSingleAxisPoints( pointAmount, pointSpacing )
+	local function CalculateSingleAxisPoints( pointAmount, pointSpacing, gapIncrement, gapSize, gapStartPoint )
 		local pointTable = {}
+		local combinedGapSize = 0
+		local gapCount = gapStartPoint
 
 		for i = 0, pointAmount - 1 do
-			pointTable[i] = pointSpacing * i
+			if ( gapCount == i ) then
+				combinedGapSize = combinedGapSize + gapSize
+				gapCount = gapCount + gapIncrement
+			end
+			pointTable[i] = pointSpacing * i + combinedGapSize
 		end
 
 		return pointTable
 	end
 
-	local xTable = CalculateSingleAxisPoints( xAmount, xSpacingBase )
-	local yTable = CalculateSingleAxisPoints( yAmount, ySpacingBase )
-	local zTable = CalculateSingleAxisPoints( zAmount, zSpacingBase )
+	local xTable = CalculateSingleAxisPoints( xAmount, xSpacingBase, xGapInterval, xGapSpacing, xGapStart )
+	local yTable = CalculateSingleAxisPoints( yAmount, ySpacingBase, yGapInterval, yGapSpacing, yGapStart )
+	local zTable = CalculateSingleAxisPoints( zAmount, zSpacingBase, zGapInterval, zGapSpacing, zGapStart )
 
 	-- Saved for array pivot calculations later
 	maxArrayPosition = Vector( xTable[#xTable], yTable[#yTable], zTable[#zTable] )
@@ -947,6 +991,7 @@ local function MakeAxisSlider( panel, color, titleString, min, max, decimals, co
 	slider:SetTall( 15 )
 	slider:SetDecimals( decimals )
 	slider:SetDark( true )
+	slider:DockPadding( 0, 0, -18, 0 )
 	slider:SetConVar( conVar )
 	slider.Paint = function()
 		surface.SetDrawColor( color )
@@ -976,6 +1021,50 @@ local function MakeAxisSliderGroup( panel, titleString, tooltipString, min, max,
 	MakeAxisSlider( panel, Color( 230, 0, 0 ), "#tool.rat.xAxis", min, max, decimals, conVar1 )
 	MakeAxisSlider( panel, Color( 0, 230, 0 ), "#tool.rat.yAxis", min, max, decimals, conVar2 )
 	MakeAxisSlider( panel, Color( 0, 0, 230 ), "#tool.rat.zAxis", min, max, decimals, conVar3 )
+end
+
+-- Very specialized but can't really get around it
+local function MakeGapSliderWangCombo( panel, sliderString, axisColor, conVar1, conVar2, conVar3 )
+	MakeAxisSlider( panel, axisColor, sliderString, 0, 1000, 0, conVar1 )
+
+	local dList = vgui.Create( "DPanelList" )
+	dList:DockPadding( 10, 0, 0, 0 )
+	panel:AddItem( dList )
+
+	local label = vgui.Create( "DLabel", dList )
+	label:SetText( "#tool.rat.pointGapsInterval" )
+	label:SetDark( true )
+	label:DockMargin( 30, 0, 0, 0 )
+	label:Dock( LEFT )
+
+	local numbox = vgui.Create( "DNumberWang", dList )
+	numbox:SetSize( 35, 20 )
+	numbox:SetMinMax( 1, 100 )
+	numbox:Dock( NODOCK )
+	numbox:SetConVar( conVar2 )
+	numbox:SetValue( cvars.Number( conVar2 ) )
+
+	local label2 = vgui.Create( "DLabel", dList )
+	label2:SetText( "#tool.rat.pointGapsStart" )
+	label2:SetDark( true )
+	label2:DockMargin( 45, 0, 0, 0 )
+	label2:Dock( LEFT )
+
+	local numbox2 = vgui.Create( "DNumberWang", dList  )
+	numbox2:SetSize( 35, 20 )
+	numbox2:SetPos( 110, 0 )
+	numbox2:SetMinMax( 1, 100 )
+	numbox2:Dock( NODOCK )
+	numbox2:SetConVar( conVar3 )
+	numbox2:SetValue( cvars.Number( conVar3 ) )
+
+	cvars.AddChangeCallback( conVar2, function( convarName, valueOld, valueNew )
+		numbox:SetValue( cvars.Number( convarName ) )
+	end, conVar2 .. "_callback")
+
+	cvars.AddChangeCallback( conVar3, function( convarName, valueOld, valueNew )
+		numbox2:SetValue( cvars.Number( convarName ) )
+	end, conVar3 .. "_callback")
 end
 
 local function MakeCollapsible( panel, titleString, toggleConVar )
@@ -1049,6 +1138,12 @@ function TOOL:RebuildCPanel()
 	cvars.RemoveChangeCallback("rat_arrayCount", "rat_arrayCount_callback")
 	cvars.RemoveChangeCallback("rat_spawnFrozen", "rat_spawnFrozen_callback")
 	cvars.RemoveChangeCallback("rat_ignoreSurfaceAngle", "rat_ignoreSurfaceAngle_callback")
+	cvars.RemoveChangeCallback("rat_xGapInterval", "rat_xGapInterval_callback")
+	cvars.RemoveChangeCallback("rat_yGapInterval", "rat_yGapInterval_callback")
+	cvars.RemoveChangeCallback("rat_zGapInterval", "rat_zGapInterval_callback")
+	cvars.RemoveChangeCallback("rat_xGapStart", "rat_xGapStart_callback")
+	cvars.RemoveChangeCallback("rat_yGapStart", "rat_yGapStart_callback")
+	cvars.RemoveChangeCallback("rat_zGapStart", "rat_zGapStart_callback")
 
 	panel:Clear()
 	self.BuildCPanel( panel )
@@ -1256,6 +1351,26 @@ function TOOL.BuildCPanel( cpanel )
 	MakeAxisSliderGroup( collapsiblePoint, "#tool.rat.pointRotation", "#tool.rat.pointRotationDescription", -180, 180, 0,
 	"rat_xRotationBase", "rat_yRotationBase", "rat_zRotationBase" )
 
+	MakeText( collapsiblePoint, Color( 50, 50, 50 ), "" )
+
+	local groupTitle = MakeText( collapsiblePoint, Color( 50, 50, 50 ), "#tool.rat.pointGaps" )
+	groupTitle:SetTooltip( "#tool.rat.pointGapsDescription" )
+	groupTitle:SetMouseInputEnabled( true )
+	function groupTitle:DoClick() -- Three commands per line to just save some space
+		GetConVar( "rat_xGapSpacing" ):Revert() GetConVar( "rat_xGapInterval" ):Revert() GetConVar( "rat_xGapStart" ):Revert()
+		GetConVar( "rat_yGapSpacing" ):Revert() GetConVar( "rat_yGapInterval" ):Revert() GetConVar( "rat_yGapStart" ):Revert()
+		GetConVar( "rat_zGapSpacing" ):Revert() GetConVar( "rat_zGapInterval" ):Revert() GetConVar( "rat_zGapStart" ):Revert()
+	end
+	function groupTitle:OnCursorEntered()
+		groupTitle:SetColor( Color( 200, 100, 0 ) )
+	end
+	function groupTitle:OnCursorExited()
+		groupTitle:SetColor( Color( 50, 50, 50 ) )
+	end
+
+	MakeGapSliderWangCombo( collapsiblePoint, "#tool.rat.xAxis", Color( 230, 0, 0 ), "rat_xGapSpacing", "rat_xGapInterval", "rat_xGapStart" )
+	MakeGapSliderWangCombo( collapsiblePoint, "#tool.rat.yAxis", Color( 0, 230, 0 ), "rat_yGapSpacing", "rat_yGapInterval", "rat_yGapStart" )
+	MakeGapSliderWangCombo( collapsiblePoint, "#tool.rat.zAxis", Color( 0, 0, 230 ), "rat_zGapSpacing", "rat_zGapInterval", "rat_zGapStart" )
 
 	-- [[----------------------------------------------------------------]] -- ARRAY OFFSETS
 	local collapsibleArray = MakeCollapsible( cpanel, "#tool.rat.arrayTransforms", "rat_arrayTransformsExpanded" )
