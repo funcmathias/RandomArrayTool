@@ -11,6 +11,7 @@ local maxArrayPosition = Vector()
 
 -- Model sting paths table
 local modelPathTable = {}
+TOOL.ClientConVar["modelPaths"] = ""
 
 -- Various tool setting ConVars
 TOOL.ClientConVar["spawnFrozen"] = "1"
@@ -183,20 +184,20 @@ if CLIENT then
 	language.Add( "Cleaned_rat_arrays", "Cleaned up all Random Arrays" )
 end
 
-if SERVER then
-	-- Register the network string
-	util.AddNetworkString( "sendTables" )
+-- if SERVER then
+-- 	-- Register the network string
+-- 	util.AddNetworkString( "sendTables" )
 
-	-- When the server receives the clients network information
-	net.Receive( "sendTables", function( len, player )
-		local sid = player:SteamID()
-		modelPathTable[sid] = net.ReadTable()
+-- 	-- When the server receives the clients network information
+-- 	net.Receive( "sendTables", function( len, player )
+-- 		local sid = player:SteamID()
+-- 		modelPathTable[sid] = net.ReadTable()
 
-		-- print( "--- Model Path Table Start ---" )
-		-- PrintTable( modelPathTable )
-		-- print( "--- Model Path Table End ---" )
-	end)
-end
+-- 		-- print( "--- Model Path Table Start ---" )
+-- 		-- PrintTable( modelPathTable )
+-- 		-- print( "--- Model Path Table End ---" )
+-- 	end)
+-- end
 
 -- Checks the normal trace vs a trace against a plane at the players feet, if the plane trace is closer it will override the input trace position and normal
 function TOOL:CheckPlaneTrace( trace )
@@ -226,6 +227,22 @@ function TOOL:CheckPlaneTrace( trace )
 	end
 end
 
+-- Remove repeating start and end to save on characters, should always start with "models/" and end with ".mdl"
+local function TrimModelPath( modelPath )
+	return modelPath:sub( 8 ):sub( 1, -5 )
+end
+
+-- Restores model paths to before they were trimmed, adding back "models/" and ".mdl" and the start and end
+local function UnTrimModelPath( modelPath )
+	return "models/" .. modelPath .. ".mdl"
+end
+
+local function PathsStringToTable( pathString, pathsTable )
+	for modelPath in string.gmatch( pathString, "([^,]+)" ) do
+		table.insert( pathsTable, UnTrimModelPath( modelPath ) )
+	end
+end
+
 -- Calculates the position array for both preview and spawning
 local function CreateLocalTransformArray()
 	local xAmount = cvars.Number( "rat_xAmount" )
@@ -250,6 +267,8 @@ local function CreateLocalTransformArray()
 
 	local arrayType = cvars.Number( "rat_arrayType" )
 
+	local sphereRadius = cvars.Number( "rat_sphereRadius" )
+
 	-- Calculate the array positions for a single axis at a time
 	local function CalculateSingleAxisPoints( pointAmount, pointSpacing, gapIncrement, gapSize, gapStartPoint )
 		local pointTable = {}
@@ -273,6 +292,7 @@ local function CreateLocalTransformArray()
 
 	-- Saved for array pivot calculations later
 	maxArrayPosition = Vector( xTable[#xTable], yTable[#yTable], zTable[#zTable] )
+	centerArrayPosition = maxArrayPosition / 2
 
 	local tempTable = {}
 	local i = 0
@@ -298,6 +318,22 @@ local function CreateLocalTransformArray()
 					tempTable[i] = Vector( xTable[x], yTable[y], zTable[z] )
 					i = i + 1
 				end
+
+				-- local cx = centerArrayPosition.x
+				-- local ax = cx * -1
+				-- local cy = centerArrayPosition.y
+				-- local ay = cy * -1
+				-- local cz = centerArrayPosition.z
+				-- local az = cz * -1
+
+				-- local XY = ( xTable[x] - cx ) ^2 / ax ^2 + ( yTable[y] - cy ) ^2 / ay ^2 < 0.75
+				-- local YZ = ( yTable[y] - cy ) ^2 / ay ^2 + ( zTable[z] - cz ) ^2 / az ^2 < 0.75
+				-- local XZ = ( xTable[x] - cx ) ^2 / ax ^2 + ( zTable[z] - cz ) ^2 / az ^2 < 0.75
+
+				-- if ( XY && YZ && XZ ) then
+				-- 	tempTable[i] = Vector( xTable[x], yTable[y], zTable[z] )
+				-- 	i = i + 1
+				-- end
 			end
 		end
 	end
@@ -473,8 +509,14 @@ end
 function TOOL:SpawnPropTable( player, trace, sid )
 	local spawnedAnyProps = false
 
+	local modelPathsConVar = GetConVar( "rat_modelPaths" )
+	local modelPathsString = modelPathsConVar:GetString()
+
+	modelPathTable = {}
+	PathsStringToTable( modelPathsString, modelPathTable )
+
 	if ( next( modelPathTable ) == nil ) then return end
-	if ( next( modelPathTable[sid] ) == nil ) then return end
+	-- if ( next( modelPathTable[sid] ) == nil ) then return end
 	local transformTable = CreateLocalTransformArray()
 	if ( next( transformTable ) == nil ) then return end
 
@@ -504,7 +546,8 @@ function TOOL:SpawnPropTable( player, trace, sid )
 		-- Adds random rotation to input angle
 		elementAngle = self:RandomizeRotation( elementAngleStatic )
 
-		local modelPath = modelPathTable[sid][math.random( #modelPathTable[sid] )]
+		-- local modelPath = modelPathTable[sid][math.random( #modelPathTable[sid] )]
+		local modelPath = modelPathTable[math.random( #modelPathTable )]
 		local entityType = "prop_effect"
 		if ( util.IsValidProp( modelPath ) ) then entityType = "prop_physics" end -- Think the valid check includes checking for collision, so a model without collision will be a prop_effect
 		if ( util.IsValidRagdoll( modelPath ) ) then entityType = "prop_ragdoll" end
@@ -649,9 +692,9 @@ end
 
 -- Debug print
 function TOOL:CheckList()
-	print( "--- Model Path Table Start ---" )
-	PrintTable( modelPathTable )
-	print( "--- Model Path Table End ---" )
+	-- print( "--- Model Path Table Start ---" )
+	-- PrintTable( modelPathTable )
+	-- print( "--- Model Path Table End ---" )
 end
 
 -- Find an remove first result in table that matches input string
@@ -666,24 +709,23 @@ end
 
 -- Send the local model path table to the server
 local function updateServerTables()
-	net.Start( "sendTables" )
-	net.WriteTable( modelPathTable )
-	net.SendToServer()
+	-- net.Start( "sendTables" )
+	-- net.WriteTable( modelPathTable )
+	-- net.SendToServer()
 end
 
 -- Checks if path is for a model or a folder, if a folder then it returns a table of models in that folder
 local function CheckModelPath( inputDirectory )
-	if string.find( inputDirectory, "%.mdl" ) then
+	if string.find( inputDirectory[1], ".mdl" ) then
 		-- print ( "The word .mdl was found in path: " .. inputDirectory )
-		local tempTable = { inputDirectory }
-		return tempTable
+		return inputDirectory
 	else
 		local tempMdlTable = {}
 		-- print( "==[LOADING " .. inputDirectory .. "]===========================================" )
-		local fileList = file.Find( inputDirectory .. "/*.mdl", "GAME" )
+		local fileList = file.Find( inputDirectory[1] .. "/*.mdl", "GAME" )
 		-- PrintTable( fileList )
 		for i, fileName in pairs( fileList ) do
-			local directory = inputDirectory .. "/" .. fileName
+			local directory = inputDirectory[1] .. "/" .. fileName
 			-- resource.AddFile( directory )
 			table.insert( tempMdlTable, directory )
 			-- print( "    >Loaded " .. directory )
@@ -694,22 +736,146 @@ local function CheckModelPath( inputDirectory )
 	end
 end
 
--- Creates icons for the prop list
-local function AddSpawnIcon( inputListPanel, inputModelPath ) --------------------------------------------------------------------
-	for i, path in ipairs( CheckModelPath( inputModelPath ) ) do
-		local ListItem = inputListPanel:Add( "SpawnIcon" )
-		ListItem:SetSize( 64, 64 )
-		-- print( "Model path for icon is " .. path )
-		ListItem:SetModel( path )
+-- Check if any entry in input table matches the input string
+local function CheckExistsInTable( inputTable, inputString )
+	for i, str in ipairs( inputTable ) do
+		if str == inputString then
+			return true
+		end
+	end
+	return false
+end
 
-		ListItem.DoRightClick = function()
-			RemoveFirstMatchInTable( modelPathTable, path )
-			updateServerTables()
-			-- print( "Going to remove myself" )
-			ListItem:Remove()
+local function AddModelPathsToConVars( pathTable )
+	local modelPathsConVar = GetConVar( "rat_modelPaths" )
+	local modelPathsString = modelPathsConVar:GetString()
+
+	local maxConVarLength = 4095
+	local conVarLength = modelPathsString:len()
+
+	-- Turn ConVar into table for sorting
+	modelPathTable = {}
+	-- for modelPath in string.gmatch( modelPathsString, "([^,]+)" ) do
+	-- 	table.insert( modelPathTable, UnTrimModelPath( modelPath ) )
+	-- end
+	PathsStringToTable( modelPathsString, modelPathTable )
+
+	-- Add the new paths that don't already exist in the ConVar to a new string that we'll add to the ConVar after
+	local newPaths = ""
+	local newPathsTable = {}
+	for i, modelPath in ipairs( pathTable ) do
+		if ( !CheckExistsInTable( modelPathTable, modelPath ) ) then
+			newPaths = newPaths .. TrimModelPath( modelPath ) .. ","
+			table.insert( newPathsTable, modelPath )
+		end
+	end
+
+	modelPathsConVar:SetString( modelPathsString .. newPaths )
+
+	print( "AddModelPathsToConVars" )
+	print( modelPathsConVar:GetString() )
+	conVarLength = modelPathsConVar:GetString():len()
+	print( conVarLength )
+
+	return newPathsTable
+end
+
+local function RemoveModelPathFromConVars( path )
+	local modelPathsConVar = GetConVar( "rat_modelPaths" )
+	local modelPathsString = modelPathsConVar:GetString()
+
+	-- Turn ConVar into table for sorting
+	modelPathTable = {}
+	-- for modelPath in string.gmatch( modelPathsString, "([^,]+)" ) do
+	-- 	table.insert( modelPathTable, UnTrimModelPath( modelPath ) )
+	-- end
+	PathsStringToTable( modelPathsString, modelPathTable )
+
+	RemoveFirstMatchInTable( modelPathTable, path )
+
+	-- Recreate the ConVar without the removed path
+	modelPathsString = ""
+	for i, modelPath in ipairs( modelPathTable ) do
+		modelPathsString = modelPathsString .. TrimModelPath( modelPath ) .. ","
+	end
+
+	modelPathsConVar:SetString( modelPathsString )
+
+	print( "RemoveModelPathFromConVars" )
+	print( modelPathsConVar:GetString() )
+end
+
+-- Creates icons for the prop list
+local function AddSpawnIcons( inputListPanel, path, selModelPanel, selModelIcon, selModelLabel ) --------------------------------------------------------------------
+	local ListItem = inputListPanel:Add( "SpawnIcon" )
+	ListItem:SetSize( 64, 64 )
+	-- print( "Model path for icon is " .. path )
+	ListItem:SetModel( path )
+	ListItem:SetSelectable( true )
+
+	ListItem.DoClick = function()
+		if ( !ListItem:IsSelected() ) then
+			inputListPanel:UnselectAll()
+			ListItem:ToggleSelection()
+
+			selModelIcon:SetVisible( true )
+			selModelIcon:SetModel( path )
+			selModelLabel:SetText( path )
+		else
+			ListItem:ToggleSelection()
+
+			selModelIcon:SetVisible( false )
+			selModelLabel:SetText( "None - Click a prop in the list to edit" )
 		end
 
-		table.insert( modelPathTable, path )
+		-- ListItem:SetSelected( true )
+	end
+
+	ListItem.DoRightClick = function()
+		-- RemoveFirstMatchInTable( modelPathTable, path )
+		RemoveModelPathFromConVars( path )
+		updateServerTables()
+
+		if ( ListItem:IsSelected() ) then
+			selModelIcon:SetVisible( false )
+			selModelLabel:SetText( "None - Click a prop in the list to edit" )
+		end
+
+		-- print( "Going to remove myself" )
+		ListItem:Remove()
+	end
+
+	-- table.insert( modelPathTable, path )
+end
+
+local function UpdateSpawnIcons( inputListPanel, selModelPanel, selModelIcon, selModelLabel )
+	local modelPathsConVar = GetConVar( "rat_modelPaths" )
+	local modelPathsString = modelPathsConVar:GetString()
+
+	local tempConVarPathString = {}
+	PathsStringToTable( modelPathsString, tempConVarPathString )
+
+	local currentModelPaths = {}
+	-- Check current spawn icons agains the ConVar list, remove ones that no longer exist and keep the ones that still do
+	for i, spawnIcon in ipairs( inputListPanel:GetChildren() ) do
+		local path = spawnIcon:GetModelName()
+
+		if ( !CheckExistsInTable( tempConVarPathString, path ) ) then
+			if ( spawnIcon:IsSelected() ) then
+				selModelIcon:SetVisible( false )
+				selModelLabel:SetText( "None - Click a prop in the list to edit" )
+			end
+			spawnIcon:Remove()
+		else
+			table.insert( currentModelPaths, path )
+		end
+	end
+
+	-- Check ConVar list against remaining spawn icons, if a spawn icon does not exist for the path create one
+	for i, conVarPath in ipairs( tempConVarPathString ) do
+		if ( !CheckExistsInTable( currentModelPaths, conVarPath ) ) then
+			AddSpawnIcons( inputListPanel, conVarPath, selModelPanel, selModelIcon, selModelLabel )
+		end
 	end
 end
 
@@ -1133,7 +1299,8 @@ function TOOL:RebuildCPanel()
 	local panel = controlpanel.Get( "rat" )
 	if ( !panel ) then MsgN( "Rat panel not found." ) return end
 
-	modelPathTable = {}
+	GetConVar( "rat_modelPaths" ):SetString( "" )
+	-- modelPathTable = {}
 	updateServerTables()
 
 	panel:Clear()
@@ -1146,6 +1313,7 @@ end
 local ConVarsDefault = TOOL:BuildConVarList()
 -- Remove some ConVars we don't want from the preset list, easier than adding all we want
 ConVarsDefault["rat_arrayCount"] = nil
+ConVarsDefault["rat_modelPaths"] = nil
 ConVarsDefault["rat_pointTransformExpanded"] = nil
 ConVarsDefault["rat_arrayTransformsExpanded"] = nil
 ConVarsDefault["rat_randomPointTransformsExpanded"] = nil
@@ -1182,6 +1350,38 @@ function TOOL.BuildCPanel( cpanel )
 	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp6" )
 
 
+	-- [[----------------------------------------------------------------]] -- Prop Settings
+	local selModelPanel = vgui.Create( "DPanelList" )
+	selModelPanel:DockPadding( 10, 0, 0, 0 )
+	selModelPanel:SetTall( 74 )
+
+	local selModelIcon = vgui.Create( "SpawnIcon", selModelPanel )
+	selModelIcon:Dock( NODOCK )
+	selModelIcon:SetSize( 64, 64 )
+	selModelIcon:SetPos( 0, 0 )
+	selModelIcon:SetVisible( false )
+	-- selModelIcon:SetModel( nil )
+	-- selModelIcon:SetSpawnIcon( "rat_assets/rat_head.png" )
+	-- selModelIcon:RebuildSpawnIcon()
+
+	local selModelLabel = vgui.Create( "DLabel", selModelPanel )
+	selModelLabel:SetText( "None - Click a prop in the list to edit" )
+	selModelLabel:Dock( TOP )
+	selModelLabel:DockMargin( 64, 0, 0, 0 )
+	selModelLabel:SetColor( Color( 40, 50, 50 ) )
+
+	local selModelSlider = vgui.Create( "DNumSlider", selModelPanel )
+	selModelSlider:Dock( TOP )
+	selModelSlider:SetText( "                     Chance" )
+	selModelSlider:SetDark( true )
+	selModelSlider:SetMinMax( 0, 20 )
+	selModelSlider:SetValue( 1 )
+
+	-- To cover the spawn icon so it won't react to hover or click
+	local selModelHitCover = vgui.Create( "DPanelList", selModelPanel )
+	selModelHitCover:Dock( NODOCK )
+	selModelHitCover:SetSize( 64, 64 )
+	selModelHitCover:SetPos( 0, 0 )
 	-- [[----------------------------------------------------------------]] -- Prop Grid List
 	cpanel:TextEntry( "#tool.rat.mdlAdd", "rat_mdlName" )
 
@@ -1202,11 +1402,13 @@ function TOOL.BuildCPanel( cpanel )
 		if ( dropped ) then
 			-- print( "Trying to drop" )
 
+			modelPathTable = {}
 			for i, panel in pairs( inputPanels ) do
 				if ( panel:GetName() != "SpawnIcon" ) then continue end
-				local currentMdlPath = panel:GetModelName()
-				AddSpawnIcon( MdlView, currentMdlPath )
+				table.insert( modelPathTable, panel:GetModelName() )
 			end
+			local newPaths = AddModelPathsToConVars( CheckModelPath( modelPathTable ) )
+			-- AddSpawnIcons( MdlView, newPaths, selModelPanel, selModelIcon, selModelLabel )
 
 			updateServerTables()
 
@@ -1215,19 +1417,43 @@ function TOOL.BuildCPanel( cpanel )
 		end
 	end)
 
+	cvars.AddChangeCallback( "rat_modelPaths", function( convarName, valueOld, valueNew )
+		UpdateSpawnIcons( MdlView, selModelPanel, selModelIcon, selModelLabel )
+	end, "rat_modelPaths_callback" )
+
 
 	local AddButton = vgui.Create( "DButton" )
 	AddButton:SetText( "#tool.rat.mdlAddButton" )
 	AddButton:SetTooltip( "#tool.rat.mdlAddButton" )
 	AddButton.DoClick = function()
-		AddSpawnIcon( MdlView, GetConVar( "rat_mdlName" ):GetString() )
+		local newPaths = AddModelPathsToConVars( CheckModelPath( { GetConVar( "rat_mdlName" ):GetString() } ) )
+		-- AddSpawnIcons( MdlView, newPaths, selModelPanel, selModelIcon, selModelLabel )
 		updateServerTables()
 	end
 
 	-- Some weird positioning here for everything to be able to reference what it needs to but still be in the right order in the ui
 	-- The function needs to be made before it gets referenced, but also after the ui it is referencing, and the button needs to be added before the prop list
 	cpanel:AddItem( AddButton )
+	local modelPathsDefault = {}
+	modelPathsDefault["rat_modelPaths"] = ""
+	cpanel:AddControl( "ComboBox", { MenuButton = 1, Folder = "rat_models", Options = { [ "#preset.default" ] = modelPathsDefault }, CVars = { "rat_modelPaths" } } )
 	cpanel:AddItem( Scroll )
+	cpanel:AddItem( selModelPanel )
+
+	local AddButton = vgui.Create( "DButton" )
+	AddButton:SetText( "#tool.rat.mdlAddButton" )
+	AddButton:SetTooltip( "#tool.rat.mdlAddButton" )
+	AddButton.DoClick = function()
+		-- local newPaths = AddModelPathsToConVars( CheckModelPath( { GetConVar( "rat_mdlName" ):GetString() } ) )
+		-- AddSpawnIcons( MdlView, newPaths, selModelPanel, selModelIcon, selModelLabel )
+
+		-- local ratModelsTable = LoadPresets()
+		-- GetConVar( "rat_modelPaths" ):SetString( ratModelsTable["rat_models"]["PRESET NAME"]["rat_modelPaths"] )
+		-- PrintTable( ratModelsTable )
+
+		-- updateServerTables()
+	end
+	cpanel:AddItem( AddButton )
 
 
 	local ClearButton = vgui.Create( "DButton" )
@@ -1238,7 +1464,8 @@ function TOOL.BuildCPanel( cpanel )
 		for i, Icon in pairs( MdlView:GetChildren() ) do
 			Icon:Remove()
 		end
-		modelPathTable = {}
+		GetConVar( "rat_modelPaths" ):SetString( "" )
+		-- modelPathTable = {}
 		updateServerTables()
 	end
 	cpanel:AddItem( ClearButton )
