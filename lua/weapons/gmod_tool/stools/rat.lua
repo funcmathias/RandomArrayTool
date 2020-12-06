@@ -5,7 +5,6 @@ TOOL.Description = "#tool.rat.desc"
 TOOL.Category = "func_Mathias"
 
 local toolActive = false
-local stringSpacing = "   "
 
 local maxArrayPosition = Vector()
 
@@ -15,6 +14,7 @@ local modelPathTable = {}
 -- Various tool setting ConVars
 TOOL.ClientConVar["spawnFrozen"] = "1"
 TOOL.ClientConVar["freezeRootBoneOnly"] = "1"
+TOOL.ClientConVar["randomRagdollPose"] = "1"
 TOOL.ClientConVar["noCollide"] = "0"
 TOOL.ClientConVar["randomColor"] = "0"
 TOOL.ClientConVar["randomSkin"] = "1"
@@ -109,6 +109,7 @@ if CLIENT then
 
 	language.Add( "tool.rat.spawnFrozen", "Spawn frozen" )
 	language.Add( "tool.rat.freezeRootBoneOnly", "Freeze only root bone of ragdolls" )
+	language.Add( "tool.rat.randomRagdollPose", "Random animation pose for ragdolls" )
 	language.Add( "tool.rat.noCollide", "No collide (world only)" )
 	language.Add( "tool.rat.randomColor", "Apply random colors" )
 	language.Add( "tool.rat.randomSkin", "Randomize skins" )
@@ -490,6 +491,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 	local spawnChance = self:GetClientNumber( "spawnChance" )
 	local spawnFrozen = tobool( self:GetClientNumber( "spawnFrozen" ) )
 	local freezeRootBoneOnly = tobool( self:GetClientNumber( "freezeRootBoneOnly" ) )
+	local randomRagdollPose = tobool( self:GetClientNumber( "randomRagdollPose" ) )
 	local noCollide = tobool( self:GetClientNumber( "noCollide" ) )
 
 	undo.Create( "rat_array_prop" )
@@ -506,35 +508,85 @@ function TOOL:SpawnPropTable( player, trace, sid )
 
 		local modelPath = modelPathTable[sid][math.random( #modelPathTable[sid] )]
 		local entityType = "prop_effect"
-		if ( util.IsValidProp( modelPath ) ) then entityType = "prop_physics" end -- Think the valid check includes checking for collision, so a model without collision will be a prop_effect
+		-- Think this valid check includes checking for collision, so a model without collision will be a prop_effect?
+		if ( util.IsValidProp( modelPath ) ) then entityType = "prop_physics" end
 		if ( util.IsValidRagdoll( modelPath ) ) then entityType = "prop_ragdoll" end
 
 		local entity = ents.Create( entityType )
-		-- print( modelPath .. " is le path for de modul" )
-		entity:SetModel( modelPath ) -------------
+		entity:SetModel( modelPath )
 		entity:SetPos( trace.HitPos + transform )
 		entity:SetAngles( elementAngle )
 		entity:Spawn()
 
 		self:RandomizeProp( entity )
 
+		-- Make a prop_dynamic and set a random frame from a random animation that model has
+		local animationEntity = nil
+		if ( randomRagdollPose && spawnFrozen && !freezeRootBoneOnly ) then
+			animationEntity = ents.Create( "prop_dynamic" )
+			animationEntity:SetModel( modelPath )
+			animationEntity:SetPos( trace.HitPos + transform )
+			animationEntity:SetAngles( elementAngle )
+			animationEntity:SetNoDraw( true )
+			animationEntity:Spawn()
+
+			local sequenceCount = animationEntity:GetSequenceCount()
+			if ( sequenceCount > 1 ) then
+				local sequenceRandom = math.random( 1, sequenceCount - 1 )
+				local sequenceLabel = animationEntity:GetSequenceInfo( sequenceRandom ).label
+
+				-- Animations containing these words are mostly T-pose so reroll and choose a different animation
+				while ( string.find( sequenceLabel, "gesture") || string.find( sequenceLabel, "accent") || string.find( sequenceLabel, "Delta") ||
+				string.find( sequenceLabel, "Frame") || string.find( sequenceLabel, "g_") || string.find( sequenceLabel, "G_") ||
+				string.find( sequenceLabel, "apex") || string.find( sequenceLabel, "Spine") ) do
+					sequenceRandom = math.random( 1, sequenceCount - 1 )
+					sequenceLabel = animationEntity:GetSequenceInfo( sequenceRandom ).label
+					-- print( "rerolled " .. sequenceLabel )
+				end
+				animationEntity:SetSequence( sequenceRandom )
+				animationEntity:SetCycle( math.Rand( 0, 1 ) )
+			else
+				-- If jus one sequence (base pose) then remove the animationEntity to avoid some calculation
+				animationEntity:Remove()
+				animationEntity = nil
+			end
+		end
+
 		-- Freeze prop (prop_effect doesn't move so don't freeze them)
 		if ( spawnFrozen && entityType != "prop_effect" ) then
 			local phys = entity:GetPhysicsObject()
-			if ( phys:IsValid() ) then
-				phys:EnableMotion( false )
-				player:AddFrozenPhysicsObject( entity, phys )
-			end
+
 			if ( entity:IsRagdoll() && !freezeRootBoneOnly ) then
 				local boneCount = entity:GetPhysicsObjectCount()
 
-				for bone = 1, boneCount - 1 do
+				for bone = 0, boneCount - 1 do
 					local physBone = entity:GetPhysicsObjectNum( bone )
 					physBone:EnableMotion( false )
 					-- Causes severe lag because of the halo effect, but can be a bit confusing/annoying to unfreeze a ragdoll without..
 					player:AddFrozenPhysicsObject( entity, physBone )
+
+					-- Copy bone positions from animationEntity to the ragdoll
+					if ( animationEntity == nil ) then continue end
+
+					-- Delay so it will start copying after the prop_dynamic animation is set
+					timer.Simple( 0.1, function()
+						local animBoneNum = entity:TranslatePhysBoneToBone( bone )
+						local pos, ang = animationEntity:GetBonePosition( animBoneNum )
+						physBone:SetPos( pos )
+						physBone:SetAngles( ang )
+					end )
 				end
+			elseif ( phys:IsValid() ) then
+				phys:EnableMotion( false )
+				player:AddFrozenPhysicsObject( entity, phys )
 			end
+		end
+
+		-- Remove the animationEntity if it has been used
+		if ( animationEntity != nil ) then
+			timer.Simple( 0.2, function()
+				animationEntity:Remove()
+			end )
 		end
 
 		if ( noCollide && entityType != "prop_effect" ) then
@@ -920,13 +972,15 @@ local function MakeText( panel, color, str )
 	return label
 end
 
-local function MakeCheckbox( panel, titleString, convar, convarEnabledState )
-	local enabledState = true
+local function SetCheckboxState( checkbox, state )
+	-- If using checkboxes made from MakeCheckbox there should always only be two children, 1 being the actuall checkbox and 2 being the text label
+	local checkboxChildren = checkbox:GetChildren()
+	checkboxChildren[1]:SetEnabled( state )
+	checkboxChildren[2]:SetEnabled( state )
+	checkboxChildren[2]:SetDark( state )
+end
 
-	if ( convarEnabledState != nil ) then
-		enabledState = cvars.Bool( convarEnabledState )
-	end
-
+local function MakeCheckbox( panel, titleString, convar )
 	local contentHolder = vgui.Create( "DSizeToContents" )
 	contentHolder:DockPadding( 0, -2, 0, -2 )
 	contentHolder:Dock( TOP )
@@ -935,27 +989,16 @@ local function MakeCheckbox( panel, titleString, convar, convarEnabledState )
 	local checkBox = vgui.Create( "DCheckBox", contentHolder )
 	checkBox:DockMargin( 0, 3, 0, 2 )
 	checkBox:SetConVar( convar )
-	checkBox:SetEnabled( enabledState )
 	checkBox:Dock( LEFT )
 
 	local label = vgui.Create( "DLabel", contentHolder )
-	label:SetText( stringSpacing .. language.GetPhrase( titleString ) )
-	label:SetDark( enabledState )
-	label:SetEnabled( enabledState )
+	label:SetText( titleString )
+	label:DockMargin( 10, 0, 0, 0 )
+	label:SetDark( true )
 	label:Dock( TOP )
 	label:SetMouseInputEnabled( true )
 	function label:DoClick()
 		GetConVar( convar ):SetBool( !cvars.Bool( convar ) )
-	end
-
-	-- Callback to enable/disable the checkbox and label when the specified convar is changed
-	if ( convarEnabledState != nil ) then
-		cvars.AddChangeCallback( convarEnabledState, function( convarName, valueOld, valueNew )
-			local cvar = cvars.Bool( convarName )
-			checkBox:SetEnabled( cvar )
-			label:SetEnabled( cvar )
-			label:SetDark( cvar )
-		end, convarEnabledState .. "_callback")
 	end
 
 	return contentHolder
@@ -991,12 +1034,12 @@ end
 
 local function MakeAxisSlider( panel, color, titleString, min, max, decimals, conVar )
 	local slider = vgui.Create( "DNumSlider" )
-	slider:SetText( stringSpacing .. language.GetPhrase( titleString ) )
+	slider:SetText( titleString )
 	slider:SetMinMax( min, max )
 	slider:SetTall( 15 )
 	slider:SetDecimals( decimals )
 	slider:SetDark( true )
-	slider:DockPadding( 0, 0, -18, 0 )
+	slider:DockPadding( 10, 0, -18, 0 )
 	slider:SetConVar( conVar )
 	slider.Paint = function()
 		surface.SetDrawColor( color )
@@ -1103,7 +1146,7 @@ local function MakeCollapsible( panel, titleString, toggleConVar )
 end
 
 local function ChangeAndColorPropCount( panel, count )
-	panel:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.numOfProps" ) .. count )
+	panel:SetText( language.GetPhrase( "#tool.rat.numOfProps" ) .. count )
 
 	if ( count < 750 ) then
 		panel:SetColor( Color( 250, 250, 250 ) ) -- White
@@ -1156,7 +1199,8 @@ function TOOL.BuildCPanel( cpanel )
 	cpanel:AddControl( "ComboBox", { MenuButton = 1, Folder = "rat", Options = { [ "#preset.default" ] = ConVarsDefault }, CVars = table.GetKeys( ConVarsDefault ) } )
 
 	MakeCheckbox( cpanel, "#tool.rat.spawnFrozen", "rat_spawnFrozen" )
-	MakeCheckbox( cpanel, "#tool.rat.freezeRootBoneOnly", "rat_freezeRootBoneOnly", "rat_spawnFrozen" )
+	local checkboxRootBoneOnly = MakeCheckbox( cpanel, "#tool.rat.freezeRootBoneOnly", "rat_freezeRootBoneOnly" )
+	local checkboxRandomRagdollPose = MakeCheckbox( cpanel, "#tool.rat.randomRagdollPose", "rat_randomRagdollPose" )
 	MakeCheckbox( cpanel, "#tool.rat.noCollide", "rat_noCollide" )
 	MakeCheckbox( cpanel, "#tool.rat.randomColor", "rat_randomColor" )
 	MakeCheckbox( cpanel, "#tool.rat.randomSkin", "rat_randomSkin" )
@@ -1247,7 +1291,7 @@ function TOOL.BuildCPanel( cpanel )
 
 	-- [[----------------------------------------------------------------]] -- Array visualization options
 	MakeCheckbox( cpanel, "#tool.rat.ignoreSurfaceAngle", "rat_ignoreSurfaceAngle" )
-	MakeCheckbox( cpanel, "#tool.rat.facePlayerZ", "rat_facePlayerZ", "rat_ignoreSurfaceAngle" )
+	local checkboxFacePlayer = MakeCheckbox( cpanel, "#tool.rat.facePlayerZ", "rat_facePlayerZ" )
 	MakeCheckbox( cpanel, "#tool.rat.localGroundPlane", "rat_localGroundPlane" )
 	MakeCheckbox( cpanel, "#tool.rat.previewPosition", "rat_previewAxis" )
 	MakeCheckbox( cpanel, "#tool.rat.previewOffset", "rat_previewBox" )
@@ -1284,38 +1328,45 @@ function TOOL.BuildCPanel( cpanel )
 
 
 	-- [[----------------------------------------------------------------]] -- Prop Counter
+	local dListCountHolder = vgui.Create( "DPanelList" )
+	dListCountHolder:SetAutoSize( true )
+	dListCountHolder:SetTall( 20 )
+	dListCountHolder.Paint = function()
+		draw.RoundedBoxEx( 4, 0, 0, 200, 19, Color( 127, 127, 127 ), true, true, false, false )
+	end
+	cpanel:AddItem( dListCountHolder )
+
 	local NumberOfPropsText = vgui.Create( "DLabel" )
-	NumberOfPropsText:SetText( stringSpacing .. language.GetPhrase( "#tool.rat.numOfProps" ) .. "1" )
+	NumberOfPropsText:SetText( language.GetPhrase( "#tool.rat.numOfProps" ) .. "1" )
+	NumberOfPropsText:Dock( LEFT )
+	NumberOfPropsText:DockMargin( 10, 0, 0, 0 )
 	NumberOfPropsText:SetFont( "DermaDefaultBold" )
 	NumberOfPropsText:SetTall( 20 )
 	NumberOfPropsText:SetColor( Color( 250, 250, 250 ) )
 	NumberOfPropsText:SetWrap( true )
-	NumberOfPropsText.Paint = function()
-		draw.RoundedBoxEx( 4, 0, 0, 200, 19, Color( 127, 127, 127 ), true, true, false, false )
-	end
-	cpanel:AddItem( NumberOfPropsText )
+	dListCountHolder:AddItem( NumberOfPropsText )
 
 	ChangeAndColorPropCount( NumberOfPropsText, cvars.Number( "rat_arrayCount" ) ) -- Make sure the text shows the correct count
 
 	-- Only reliable way I found to update this value was a bunch of callbacks
 	-- If using GetConVar within DNumberWang:OnValueChanged it would return the previous value
-	cvars.AddChangeCallback("rat_xAmount", function( convarName, valueOld, valueNew )
+	cvars.AddChangeCallback( "rat_xAmount", function( convarName, valueOld, valueNew )
 		CreateLocalTransformArray()
-	end, "rat_xAmount_callback")
-	cvars.AddChangeCallback("rat_yAmount", function( convarName, valueOld, valueNew )
+	end, "rat_xAmount_callback" )
+	cvars.AddChangeCallback( "rat_yAmount", function( convarName, valueOld, valueNew )
 		CreateLocalTransformArray()
-	end, "rat_yAmount_callback")
-	cvars.AddChangeCallback("rat_zAmount", function( convarName, valueOld, valueNew )
+	end, "rat_yAmount_callback" )
+	cvars.AddChangeCallback( "rat_zAmount", function( convarName, valueOld, valueNew )
 		CreateLocalTransformArray()
-	end, "rat_zAmount_callback")
-	cvars.AddChangeCallback("rat_arrayType", function( convarName, valueOld, valueNew )
+	end, "rat_zAmount_callback" )
+	cvars.AddChangeCallback( "rat_arrayType", function( convarName, valueOld, valueNew )
 		CreateLocalTransformArray()
 		-- Update dropdown when preset changes
-		comboBox:ChooseOptionID( cvars.Number( convarName ) )
-	end, "rat_arrayType_callback")
-	cvars.AddChangeCallback("rat_arrayCount", function( convarName, valueOld, valueNew )
+		comboBox:ChooseOptionID( tonumber( valueNew ) )
+	end, "rat_arrayType_callback" )
+	cvars.AddChangeCallback( "rat_arrayCount", function( convarName, valueOld, valueNew )
 		ChangeAndColorPropCount( NumberOfPropsText, tonumber( valueNew ) )
-	end, "rat_arrayCount_callback")
+	end, "rat_arrayCount_callback" )
 
 	-- Only way I managed to get spacing on the top in this configuration was to make a spacer object sadly
 	local dListSpacing = vgui.Create( "DPanelList" ) ----
@@ -1438,4 +1489,28 @@ function TOOL.BuildCPanel( cpanel )
 		end
 	end
 	cpanel:AddItem( UpdateButton )
+
+
+
+	-------------------------------------------------
+	-- CHECKBOX INITIAL STATES AND STATE CALLBACKS --
+	-------------------------------------------------
+
+	-- Initial enabled states for checkboxes
+	SetCheckboxState( checkboxRootBoneOnly, GetConVar( "rat_spawnFrozen" ):GetBool() )
+	SetCheckboxState( checkboxRandomRagdollPose, GetConVar( "rat_spawnFrozen" ):GetBool() && !GetConVar( "rat_freezeRootBoneOnly" ):GetBool() )
+	SetCheckboxState( checkboxFacePlayer, GetConVar( "rat_ignoreSurfaceAngle" ):GetBool() )
+
+	cvars.AddChangeCallback( "rat_spawnFrozen", function( convarName, valueOld, valueNew )
+		SetCheckboxState( checkboxRootBoneOnly, tobool( valueNew ) )
+		SetCheckboxState( checkboxRandomRagdollPose, !GetConVar( "rat_freezeRootBoneOnly" ):GetBool() && tobool( valueNew ) )
+	end, "rat_spawnFrozen_callback")
+
+	cvars.AddChangeCallback( "rat_freezeRootBoneOnly", function( convarName, valueOld, valueNew )
+		SetCheckboxState( checkboxRandomRagdollPose, GetConVar( "rat_spawnFrozen" ):GetBool() && !tobool( valueNew ) )
+	end, "rat_freezeRootBoneOnly_callback")
+
+	cvars.AddChangeCallback( "rat_ignoreSurfaceAngle", function( convarName, valueOld, valueNew )
+		SetCheckboxState( checkboxFacePlayer, tobool( valueNew ) )
+	end, "rat_ignoreSurfaceAngle_callback")
 end
