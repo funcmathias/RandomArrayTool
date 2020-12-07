@@ -1348,26 +1348,6 @@ function TOOL.BuildCPanel( cpanel )
 
 	ChangeAndColorPropCount( NumberOfPropsText, cvars.Number( "rat_arrayCount" ) ) -- Make sure the text shows the correct count
 
-	-- Only reliable way I found to update this value was a bunch of callbacks
-	-- If using GetConVar within DNumberWang:OnValueChanged it would return the previous value
-	cvars.AddChangeCallback( "rat_xAmount", function( convarName, valueOld, valueNew )
-		CreateLocalTransformArray()
-	end, "rat_xAmount_callback" )
-	cvars.AddChangeCallback( "rat_yAmount", function( convarName, valueOld, valueNew )
-		CreateLocalTransformArray()
-	end, "rat_yAmount_callback" )
-	cvars.AddChangeCallback( "rat_zAmount", function( convarName, valueOld, valueNew )
-		CreateLocalTransformArray()
-	end, "rat_zAmount_callback" )
-	cvars.AddChangeCallback( "rat_arrayType", function( convarName, valueOld, valueNew )
-		CreateLocalTransformArray()
-		-- Update dropdown when preset changes
-		comboBox:ChooseOptionID( tonumber( valueNew ) )
-	end, "rat_arrayType_callback" )
-	cvars.AddChangeCallback( "rat_arrayCount", function( convarName, valueOld, valueNew )
-		ChangeAndColorPropCount( NumberOfPropsText, tonumber( valueNew ) )
-	end, "rat_arrayCount_callback" )
-
 	-- Only way I managed to get spacing on the top in this configuration was to make a spacer object sadly
 	local dListSpacing = vgui.Create( "DPanelList" ) ----
 	dListSpacing:DockMargin( 0, -10, 0, 0 )
@@ -1391,6 +1371,26 @@ function TOOL.BuildCPanel( cpanel )
 	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.xAxis" ), "rat_xAmount", 1, 999, 10 )
 	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.yAxis" ), "rat_yAmount", 1, 999, 10 )
 	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.zAxis" ), "rat_zAmount", 1, 999, 10 )
+
+	-- Only reliable way I found to update this value was a bunch of callbacks
+	-- If using GetConVar within DNumberWang:OnValueChanged it would return the previous value
+	cvars.AddChangeCallback( "rat_xAmount", function( convarName, valueOld, valueNew )
+		CreateLocalTransformArray()
+	end, "rat_xAmount_callback" )
+	cvars.AddChangeCallback( "rat_yAmount", function( convarName, valueOld, valueNew )
+		CreateLocalTransformArray()
+	end, "rat_yAmount_callback" )
+	cvars.AddChangeCallback( "rat_zAmount", function( convarName, valueOld, valueNew )
+		CreateLocalTransformArray()
+	end, "rat_zAmount_callback" )
+	cvars.AddChangeCallback( "rat_arrayType", function( convarName, valueOld, valueNew )
+		CreateLocalTransformArray()
+		-- Update dropdown when preset changes
+		comboBox:ChooseOptionID( tonumber( valueNew ) )
+	end, "rat_arrayType_callback" )
+	cvars.AddChangeCallback( "rat_arrayCount", function( convarName, valueOld, valueNew )
+		ChangeAndColorPropCount( NumberOfPropsText, tonumber( valueNew ) )
+	end, "rat_arrayCount_callback" )
 
 
 	-- [[----------------------------------------------------------------]] -- SPAWN TRANSFORMS
