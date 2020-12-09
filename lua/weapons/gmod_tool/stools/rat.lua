@@ -122,13 +122,15 @@ if CLIENT then
 	language.Add( "tool.rat.listHelp1", "With the panel below you can keep track of the props you want to randomly spawn." )
 	language.Add( "tool.rat.listHelp2", "- You can drag and drop any prop from the default spawnlist into the grey panel below to add them. You can select and drag multiple at once!" )
 	language.Add( "tool.rat.listHelp3", "- You can also add props by using a path, if it's a path to a folder it will add every model in the folder as a prop. Be careful with folders containing a large amount of models." )
-	language.Add( "tool.rat.listHelp4", "- Right click on one of the icons to remove it from the list." )
-	language.Add( "tool.rat.listHelp5", "- Tip: Adding multiple copies of the same prop will increase it's chance of being spawned." )
-	language.Add( "tool.rat.listHelp6", "- Tip: There is no option for saving your list but you can create a custom spawnlist to keep all the desired props in one place for easy adding to this list." )
+	language.Add( "tool.rat.listHelp4", "- Right click any icon to remove it from the list." )
+	language.Add( "tool.rat.listHelp5", "- Tip: There is no option for saving your prop list but you can create a custom spawnlist to keep all the desired props in one place for easy adding to this list." )
 
 	language.Add( "tool.rat.mdlAdd", "Add prop by path" )
 	language.Add( "tool.rat.mdlAddButton", "Add to list from path" )
 	language.Add( "tool.rat.mdlClearButton", "Clear prop list" )
+
+	language.Add( "tool.rat.probabilityResetButton", "Reset prop probability" )
+	language.Add( "tool.rat.propProbabilityTooltip", "Prop spawn probability" )
 
 	language.Add( "tool.rat.ignoreSurfaceAngle", "Ignore surface angle" )
 	language.Add( "tool.rat.facePlayerZ", "Face player on Z axis" )
@@ -197,6 +199,23 @@ if SERVER then
 		-- PrintTable( modelPathTable )
 		-- print( "--- Model Path Table End ---" )
 	end)
+end
+
+-- Returns a random model path depending on probability
+local function GetRandomModelPath( sid )
+	-- Add every models probability together
+	local probabilitySum = 0
+	for _, probability in pairs( modelPathTable[sid] ) do
+		probabilitySum = probabilitySum + probability
+	end
+
+	-- Generate a random number and loop until it goes under 0 and return that path
+	local random = math.Rand( 0, probabilitySum )
+	for path, probability in pairs( modelPathTable[sid] ) do
+		-- print("path " .. path .. "     random " .. random .. "     probability " .. probability)
+		random = random - probability
+		if random <= 0 then return path end
+	end
 end
 
 -- Checks the normal trace vs a trace against a plane at the players feet, if the plane trace is closer it will override the input trace position and normal
@@ -506,7 +525,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 		-- Adds random rotation to input angle
 		elementAngle = self:RandomizeRotation( elementAngleStatic )
 
-		local modelPath = modelPathTable[sid][math.random( #modelPathTable[sid] )]
+		local modelPath = GetRandomModelPath( sid )
 		local entityType = "prop_effect"
 		-- Think this valid check includes checking for collision, so a model without collision will be a prop_effect?
 		if ( util.IsValidProp( modelPath ) ) then entityType = "prop_physics" end
@@ -706,16 +725,6 @@ function TOOL:CheckList()
 	print( "--- Model Path Table End ---" )
 end
 
--- Find an remove first result in table that matches input string
-local function RemoveFirstMatchInTable( inputTable, inputString )
-	for i, str in ipairs( inputTable ) do
-		if str == inputString then
-			table.remove( inputTable, i )
-			return
-		end
-	end
-end
-
 -- Send the local model path table to the server
 local function updateServerTables()
 	net.Start( "sendTables" )
@@ -749,19 +758,57 @@ end
 -- Creates icons for the prop list
 local function AddSpawnIcon( inputListPanel, inputModelPath ) --------------------------------------------------------------------
 	for i, path in ipairs( CheckModelPath( inputModelPath ) ) do
+		-- If path (model) already exists then don't add a new spawn icon for it
+		if ( modelPathTable[path] != nil ) then continue end
+
 		local ListItem = inputListPanel:Add( "SpawnIcon" )
 		ListItem:SetSize( 64, 64 )
 		-- print( "Model path for icon is " .. path )
 		ListItem:SetModel( path )
 
 		ListItem.DoRightClick = function()
-			RemoveFirstMatchInTable( modelPathTable, path )
+			if ( modelPathTable[path] != nil ) then
+				modelPathTable[path] = nil
+			end
 			updateServerTables()
 			-- print( "Going to remove myself" )
 			ListItem:Remove()
 		end
 
-		table.insert( modelPathTable, path )
+		-- Probability UI
+		local probabilityTextBlack = vgui.Create( "DLabel", ListItem )
+		probabilityTextBlack:SetText( string.format( "%.2f", 1 ) )
+		probabilityTextBlack:Dock( NODOCK )
+		probabilityTextBlack:SetPos( 7, 3 )
+		probabilityTextBlack:SetSize( 40, 15 )
+		probabilityTextBlack:SetColor( color_black )
+
+		local probabilityTextWhite = vgui.Create( "DLabel", ListItem )
+		probabilityTextWhite:SetText( string.format( "%.2f", 1 ) )
+		probabilityTextWhite:Dock( NODOCK )
+		probabilityTextWhite:SetPos( 5, 2 )
+		probabilityTextWhite:SetSize( 40, 15 )
+		probabilityTextWhite:SetColor( color_white )
+
+		local probabilityScratch = vgui.Create( "DNumberScratch", ListItem )
+		probabilityScratch:Dock( NODOCK )
+		probabilityScratch:SetPos( 5, 5 )
+		probabilityScratch:SetValue( 1 )
+		probabilityScratch:SetMin( 0.01 )
+		probabilityScratch:SetMax( 10 )
+		probabilityScratch:SetDecimals( 2 )
+		probabilityScratch:SetTooltip( "#tool.rat.propProbabilityTooltip" )
+		probabilityScratch:SetColor( Color( 0, 0, 0, 0 ) )
+		function probabilityScratch:OnValueChanged( val )
+			local probabilityText = string.format( "%.2f", val )
+			probabilityTextBlack:SetText( probabilityText )
+			probabilityTextWhite:SetText( probabilityText )
+
+			modelPathTable[path] = val
+			updateServerTables()
+		end
+
+		modelPathTable[path] = 1
 	end
 end
 
@@ -1220,10 +1267,8 @@ function TOOL.BuildCPanel( cpanel )
 	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp1" )
 	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp2" )
 	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp3" )
-	-- MakeText( collapsible, Color( 50, 50, 50 ), "- Left click on one of the icons to be able to configure and constrain the bodygroups and skins it will be spawned with." )
 	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp4" )
 	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp5" )
-	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp6" )
 
 
 	-- [[----------------------------------------------------------------]] -- Prop Grid List
@@ -1274,9 +1319,33 @@ function TOOL.BuildCPanel( cpanel )
 	cpanel:AddItem( Scroll )
 
 
-	local ClearButton = vgui.Create( "DButton" )
+	local ResetButtonsHolder = vgui.Create( "DPanelList" )
+	ResetButtonsHolder:Dock( TOP )
+	ResetButtonsHolder:DockMargin( 0, -8, 0, 0 )
+	cpanel:AddItem( ResetButtonsHolder )
+
+	local ResetProbabilityButton = vgui.Create( "DButton", ResetButtonsHolder )
+	ResetProbabilityButton:SetText( "#tool.rat.probabilityResetButton" )
+	ResetProbabilityButton:Dock( LEFT )
+	ResetProbabilityButton:SetWidth( 130 )
+	ResetProbabilityButton.DoClick = function()
+		for i, Icon in pairs( MdlView:GetChildren() ) do
+			-- Get the children of the spawn icon to edit the probability ui
+			-- Not a big fan of referencing child indicies like this but not sure how else to do it
+			local checkboxChildren = Icon:GetChildren()
+			checkboxChildren[2]:SetText( string.format( "%.2f", 1 ) )
+			checkboxChildren[3]:SetText( string.format( "%.2f", 1 ) )
+			-- Reset the DNumberScratch value
+			checkboxChildren[4]:SetValue( 1 )
+
+			modelPathTable[Icon:GetModelName()] = 1
+		end
+	end
+
+	local ClearButton = vgui.Create( "DButton", ResetButtonsHolder )
 	ClearButton:SetText( "#tool.rat.mdlClearButton" )
-	ClearButton:DockMargin( 0, -8, 0, 0 )
+	ClearButton:Dock( RIGHT )
+	ClearButton:SetWidth( 90 )
 	-- ClearButton:SetTooltip( "#tool.rat.mdlAddButton" )
 	ClearButton.DoClick = function()
 		for i, Icon in pairs( MdlView:GetChildren() ) do
@@ -1285,7 +1354,6 @@ function TOOL.BuildCPanel( cpanel )
 		modelPathTable = {}
 		updateServerTables()
 	end
-	cpanel:AddItem( ClearButton )
 
 
 
