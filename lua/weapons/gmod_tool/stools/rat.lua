@@ -249,28 +249,28 @@ function TOOL:CheckPlaneTrace( trace )
 end
 
 -- Calculates the position array for both preview and spawning
-local function CreateLocalTransformArray()
-	local xAmount = cvars.Number( "rat_xAmount" )
-	local yAmount = cvars.Number( "rat_yAmount" )
-	local zAmount = cvars.Number( "rat_zAmount" )
+function TOOL:CreateLocalTransformArray()
+	local xAmount = self:GetClientNumber( "xAmount" )
+	local yAmount = self:GetClientNumber( "yAmount" )
+	local zAmount = self:GetClientNumber( "zAmount" )
 
-	local xSpacingBase = cvars.Number( "rat_xSpacingBase" )
-	local ySpacingBase = cvars.Number( "rat_ySpacingBase" )
-	local zSpacingBase = cvars.Number( "rat_zSpacingBase" )
+	local xSpacingBase = self:GetClientNumber( "xSpacingBase" )
+	local ySpacingBase = self:GetClientNumber( "ySpacingBase" )
+	local zSpacingBase = self:GetClientNumber( "zSpacingBase" )
 
-	local xGapInterval = cvars.Number( "rat_xGapInterval" )
-	local yGapInterval = cvars.Number( "rat_yGapInterval" )
-	local zGapInterval = cvars.Number( "rat_zGapInterval" )
+	local xGapInterval = self:GetClientNumber( "xGapInterval" )
+	local yGapInterval = self:GetClientNumber( "yGapInterval" )
+	local zGapInterval = self:GetClientNumber( "zGapInterval" )
 
-	local xGapSpacing = cvars.Number( "rat_xGapSpacing" )
-	local yGapSpacing = cvars.Number( "rat_yGapSpacing" )
-	local zGapSpacing = cvars.Number( "rat_zGapSpacing" )
+	local xGapSpacing = self:GetClientNumber( "xGapSpacing" )
+	local yGapSpacing = self:GetClientNumber( "yGapSpacing" )
+	local zGapSpacing = self:GetClientNumber( "zGapSpacing" )
 
-	local xGapStart = cvars.Number( "rat_xGapStart" )
-	local yGapStart = cvars.Number( "rat_yGapStart" )
-	local zGapStart = cvars.Number( "rat_zGapStart" )
+	local xGapStart = self:GetClientNumber( "xGapStart" )
+	local yGapStart = self:GetClientNumber( "yGapStart" )
+	local zGapStart = self:GetClientNumber( "zGapStart" )
 
-	local arrayType = cvars.Number( "rat_arrayType" )
+	local arrayType = self:GetClientNumber( "arrayType" )
 
 	-- Calculate the array positions for a single axis at a time
 	local function CalculateSingleAxisPoints( pointAmount, pointSpacing, gapIncrement, gapSize, gapStartPoint )
@@ -325,7 +325,7 @@ local function CreateLocalTransformArray()
 	end
 
 	-- Check if the array count has changed and update the convar if so (triggering it's callbacks)
-	local arrayCount = cvars.Number( "rat_arrayCount" )
+	local arrayCount = self:GetClientNumber( "arrayCount" )
 	if ( arrayCount != i && CLIENT ) then
 		GetConVar( "rat_arrayCount" ):SetInt( i )
 	end
@@ -497,7 +497,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 
 	if ( next( modelPathTable ) == nil ) then return end
 	if ( next( modelPathTable[sid] ) == nil ) then return end
-	local transformTable = CreateLocalTransformArray()
+	local transformTable = self:CreateLocalTransformArray()
 	if ( next( transformTable ) == nil ) then return end
 
 	-- Check if we should use normal or plane trace, modifies original trace data
@@ -848,7 +848,7 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 
 		-- Render per position visualization
 		if ( previewAxis || previewBox ) then
-			local transformTable = CreateLocalTransformArray()
+			local transformTable = playerTool:CreateLocalTransformArray()
 			if ( next( transformTable ) == nil ) then return end
 
 			-- playerTool:RandomizeTransformArrayPosition( transformTable ) -- For easy debugging of random positions
@@ -1440,16 +1440,16 @@ function TOOL.BuildCPanel( cpanel )
 	-- Only reliable way I found to update this value was a bunch of callbacks
 	-- If using GetConVar within DNumberWang:OnValueChanged it would return the previous value
 	cvars.AddChangeCallback( "rat_xAmount", function( convarName, valueOld, valueNew )
-		CreateLocalTransformArray()
+		LocalPlayer():GetTool( "rat" ):CreateLocalTransformArray()
 	end, "rat_xAmount_callback" )
 	cvars.AddChangeCallback( "rat_yAmount", function( convarName, valueOld, valueNew )
-		CreateLocalTransformArray()
+		LocalPlayer():GetTool( "rat" ):CreateLocalTransformArray()
 	end, "rat_yAmount_callback" )
 	cvars.AddChangeCallback( "rat_zAmount", function( convarName, valueOld, valueNew )
-		CreateLocalTransformArray()
+		LocalPlayer():GetTool( "rat" ):CreateLocalTransformArray()
 	end, "rat_zAmount_callback" )
 	cvars.AddChangeCallback( "rat_arrayType", function( convarName, valueOld, valueNew )
-		CreateLocalTransformArray()
+		LocalPlayer():GetTool( "rat" ):CreateLocalTransformArray()
 		-- Update dropdown when preset changes
 		comboBox:ChooseOptionID( tonumber( valueNew ) )
 	end, "rat_arrayType_callback" )
