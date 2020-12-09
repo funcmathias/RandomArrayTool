@@ -522,6 +522,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 
 	-- Loop per position in the table
 	for i, transform in pairs( transformTable ) do
+		if ( !player:CheckLimit( "props" ) ) then break end
 		-- Check spawn chance
 		if ( spawnChance < math.random( 1, 100 ) ) then continue end
 
@@ -618,7 +619,8 @@ function TOOL:SpawnPropTable( player, trace, sid )
 
 		-- Add entity to undo and cleanup
 		undo.AddEntity( entity )
-		self:GetOwner():AddCleanup( "rat_arrays", entity )
+		player:AddCleanup( "rat_arrays", entity )
+		player:AddCount( "props", entity )
 
 		spawnedAnyProps = true
 	end
@@ -1441,13 +1443,13 @@ function TOOL.BuildCPanel( cpanel )
 	-- If using GetConVar within DNumberWang:OnValueChanged it would return the previous value
 	cvars.AddChangeCallback( "rat_xAmount", function( convarName, valueOld, valueNew )
 		LocalPlayer():GetTool( "rat" ):CreateLocalTransformArray()
-	end, "rat_xAmount_callback" )
+	end, "rat_xAmount_callback_2" )
 	cvars.AddChangeCallback( "rat_yAmount", function( convarName, valueOld, valueNew )
 		LocalPlayer():GetTool( "rat" ):CreateLocalTransformArray()
-	end, "rat_yAmount_callback" )
+	end, "rat_yAmount_callback_2" )
 	cvars.AddChangeCallback( "rat_zAmount", function( convarName, valueOld, valueNew )
 		LocalPlayer():GetTool( "rat" ):CreateLocalTransformArray()
-	end, "rat_zAmount_callback" )
+	end, "rat_zAmount_callback_2" )
 	cvars.AddChangeCallback( "rat_arrayType", function( convarName, valueOld, valueNew )
 		LocalPlayer():GetTool( "rat" ):CreateLocalTransformArray()
 		-- Update dropdown when preset changes
