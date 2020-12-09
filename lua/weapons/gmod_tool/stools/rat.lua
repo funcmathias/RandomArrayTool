@@ -676,12 +676,23 @@ function TOOL:LeftClick( trace )
 		-- Spawns the props
 		return self:SpawnPropTable( player, trace, sid )
 	end
+
+	-- Doing client side approximate checks for user feedback from the tool since the server return doesn't work clientside when on a server, in single player this code isn't reached
+	-- Sadly can't do as good of a check for client side so just checking if the model table is empty, works well enough for most cases
+	if ( CLIENT ) then
+		if ( next( modelPathTable ) != nil ) then
+			return true
+		else
+			return false
+		end
+	end
 end
 
 function TOOL:RightClick( trace )
+	local sphereRadius = self:GetClientNumber( "sphereRadius" )
+
 	if ( SERVER ) then
 		local randomizedAnyProps = false
-		local sphereRadius = self:GetClientNumber( "sphereRadius" )
 
 		if ( sphereRadius == 0 ) then
 			-- Randomize prop under crosshair
@@ -698,12 +709,31 @@ function TOOL:RightClick( trace )
 
 		return randomizedAnyProps
 	end
+
+	-- Doing client side approximate checks for user feedback from the tool since the server return doesn't work clientside when on a server, in single player this code isn't reached
+	if ( CLIENT ) then
+		if ( sphereRadius == 0 ) then
+			-- Check if prop under crosshair is a supported prop
+			return self:IsSupportedPropAndValid( trace.Entity )
+		else
+			-- Return true if there are supported props within the sphere volume
+			local foundEnts = ents.FindInSphere( trace.HitPos, sphereRadius )
+
+			for i, entity in pairs( foundEnts ) do
+				if ( self:IsSupportedPropAndValid( entity ) ) then
+					return true
+				end
+			end
+				return false
+		end
+	end
 end
 
 function TOOL:Reload( trace )
+	local sphereRadius = self:GetClientNumber( "sphereRadius" )
+
 	if ( SERVER ) then
 		local removedAnyProps = false
-		local sphereRadius = self:GetClientNumber( "sphereRadius" )
 
 		if ( sphereRadius == 0 ) then
 			-- Remove prop under crosshair
@@ -719,6 +749,24 @@ function TOOL:Reload( trace )
 		end
 
 		return removedAnyProps
+	end
+
+	-- Doing client side approximate checks for user feedback from the tool since the server return doesn't work clientside when on a server, in single player this code isn't reached
+	if ( CLIENT ) then
+		if ( sphereRadius == 0 ) then
+			-- Check if prop under crosshair is a supported prop
+			return self:IsSupportedPropAndValid( trace.Entity )
+		else
+			-- Return true if there are supported props within the sphere volume
+			local foundEnts = ents.FindInSphere( trace.HitPos, sphereRadius )
+
+			for i, entity in pairs( foundEnts ) do
+				if ( self:IsSupportedPropAndValid( entity ) ) then
+					return true
+				end
+			end
+				return false
+		end
 	end
 end
 
