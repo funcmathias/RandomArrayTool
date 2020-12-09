@@ -501,7 +501,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 	if ( next( transformTable ) == nil ) then return end
 
 	-- Check if we should use normal or plane trace, modifies original trace data
-	self:GetOwner():GetTool():CheckPlaneTrace( trace )
+	self:CheckPlaneTrace( trace )
 
 	-- Adds random offsets to the whole array
 	self:RandomizeTransformArrayPosition( transformTable )
@@ -837,23 +837,23 @@ end
 
 -- Render hook for drawing visualizations for array positions and some more
 hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( bDrawingDepth, bDrawingSkybox )
-	local playerTool = LocalPlayer():GetTool()
+	local playerTool = LocalPlayer():GetTool( "rat" )
 	if ( toolActive && playerTool && !bDrawingSkybox ) then
 		local previewAxis = tobool( playerTool:GetClientNumber( "previewAxis" ) )
 		local previewBox = tobool( playerTool:GetClientNumber( "previewBox" ) )
 
 		local trace = LocalPlayer():GetEyeTrace()
 		-- Check if we should use normal or plane trace, modifies original trace data
-		LocalPlayer():GetTool():CheckPlaneTrace( trace )
+		playerTool:CheckPlaneTrace( trace )
 
 		-- Render per position visualization
 		if ( previewAxis || previewBox ) then
 			local transformTable = CreateLocalTransformArray()
 			if ( next( transformTable ) == nil ) then return end
 
-			-- LocalPlayer():GetTool():RandomizeTransformArrayPosition( transformTable ) -- For easy debugging of random positions
+			-- playerTool:RandomizeTransformArrayPosition( transformTable ) -- For easy debugging of random positions
 			local elementAngle = playerTool:ModifyTransformArray( trace, transformTable )
-			-- elementAngle = LocalPlayer():GetTool():RandomizeRotation( elementAngle ) -- For easy debugging of random rotations
+			-- elementAngle = playerTool:RandomizeRotation( elementAngle ) -- For easy debugging of random rotations
 
 			for i, transform in pairs( transformTable ) do
 				if ( previewBox ) then
@@ -1211,14 +1211,7 @@ end
 if CLIENT then
 	-- Console command to rebuild the tool ui
 	concommand.Add("rat_rebuildCPanel", function( ply, cmd, args )
-		if ply:GetTool() then
-			for i, toolData in pairs( ply:GetTool() ) do
-				-- Checking if the current tool has the word rat in the tool table so it won't try to run the function when another tool is active
-				if ( toolData == "rat" ) then
-					ply:GetTool():RebuildCPanel()
-				end
-			end
-		end
+		ply:GetTool( "rat" ):RebuildCPanel()
 	end)
 end
 
@@ -1548,18 +1541,14 @@ function TOOL.BuildCPanel( cpanel )
 	local CheckButton = vgui.Create( "DButton" )
 	CheckButton:SetText( "Check List" )
 	CheckButton.DoClick = function()
-		if LocalPlayer():GetTool() then
-			LocalPlayer():GetTool():CheckList()
-		end
+		LocalPlayer():GetTool( "rat" ):CheckList()
 	end
 	cpanel:AddItem( CheckButton )
 
 	local UpdateButton = vgui.Create( "DButton" )
 	UpdateButton:SetText( "Update Control Panel" )
 	UpdateButton.DoClick = function()
-		if LocalPlayer():GetTool() then
-			LocalPlayer():GetTool():RebuildCPanel()
-		end
+		LocalPlayer():GetTool( "rat" ):RebuildCPanel()
 	end
 	cpanel:AddItem( UpdateButton )
 
