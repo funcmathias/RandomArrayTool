@@ -16,6 +16,7 @@ TOOL.ClientConVar["spawnFrozen"] = "1"
 TOOL.ClientConVar["freezeRootBoneOnly"] = "1"
 TOOL.ClientConVar["randomRagdollPose"] = "1"
 TOOL.ClientConVar["noCollide"] = "0"
+TOOL.ClientConVar["noShadow"] = "0"
 TOOL.ClientConVar["randomColor"] = "0"
 TOOL.ClientConVar["randomSkin"] = "1"
 TOOL.ClientConVar["randomBodygroup"] = "1"
@@ -111,6 +112,7 @@ if CLIENT then
 	language.Add( "tool.rat.freezeRootBoneOnly", "Freeze only root bone of ragdolls" )
 	language.Add( "tool.rat.randomRagdollPose", "Random animation pose for ragdolls" )
 	language.Add( "tool.rat.noCollide", "No collide (world only)" )
+	language.Add( "tool.rat.noShadow", "No dynamic shadow" )
 	language.Add( "tool.rat.randomColor", "Apply random colors" )
 	language.Add( "tool.rat.randomSkin", "Randomize skins" )
 	language.Add( "tool.rat.randomBodygroup", "Randomize bodygroups" )
@@ -512,6 +514,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 	local freezeRootBoneOnly = tobool( self:GetClientNumber( "freezeRootBoneOnly" ) )
 	local randomRagdollPose = tobool( self:GetClientNumber( "randomRagdollPose" ) )
 	local noCollide = tobool( self:GetClientNumber( "noCollide" ) )
+	local noShadow = tobool( self:GetClientNumber( "noShadow" ) )
 
 	undo.Create( "rat_array_prop" )
 	undo.SetCustomUndoText( "#tool.rat.undo" )
@@ -536,6 +539,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 		entity:SetPos( trace.HitPos + transform )
 		entity:SetAngles( elementAngle )
 		entity:Spawn()
+		entity:DrawShadow( !noShadow )
 
 		self:RandomizeProp( entity )
 
@@ -1249,6 +1253,7 @@ function TOOL.BuildCPanel( cpanel )
 	local checkboxRootBoneOnly = MakeCheckbox( cpanel, "#tool.rat.freezeRootBoneOnly", "rat_freezeRootBoneOnly" )
 	local checkboxRandomRagdollPose = MakeCheckbox( cpanel, "#tool.rat.randomRagdollPose", "rat_randomRagdollPose" )
 	MakeCheckbox( cpanel, "#tool.rat.noCollide", "rat_noCollide" )
+	MakeCheckbox( cpanel, "#tool.rat.noShadow", "rat_noShadow" )
 	MakeCheckbox( cpanel, "#tool.rat.randomColor", "rat_randomColor" )
 	MakeCheckbox( cpanel, "#tool.rat.randomSkin", "rat_randomSkin" )
 	MakeCheckbox( cpanel, "#tool.rat.randomBodygroup", "rat_randomBodygroup" )
