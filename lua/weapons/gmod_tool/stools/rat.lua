@@ -894,16 +894,15 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 	end
 end)
 
-function TOOL:Think()
+-- Deploy didn't seem to get called and Think would be called even when the tool is holstered so using DrawHUD instead as a hack
+function TOOL:DrawHUD()
 	if ( CLIENT ) then
-		-- print( "tool deployed" )
 		toolActive = true
 	end
 end
 
 function TOOL:Holster()
 	if ( CLIENT ) then
-		-- print( "tool holstered" )
 		toolActive = false
 	end
 end
