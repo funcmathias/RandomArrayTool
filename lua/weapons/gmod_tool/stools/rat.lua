@@ -378,11 +378,8 @@ function TOOL:ModifyTransformArray( trace, transformArray ) -- Calculates the po
 	correctedHitAngle:Normalize()
 	local tempAngle = correctedHitAngle
 
-	-- Make an offset to push the array away from the hit surface in the angle of the surface
-	local furfacePushOffset = Vector()
-	if ( pushAwayFromSurface > 0 ) then
-		furfacePushOffset:Add( correctedHitAngle:Up() * pushAwayFromSurface )
-	end
+	-- Push the array away from the hit surface in the angle of the surface
+	local surfacePushOffset = correctedHitAngle:Up() * pushAwayFromSurface
 
 	-- Ignore surface angle and set it do a default world angle, or face player on z axis
 	if ( ignoreSurfaceAngle ) then
@@ -402,7 +399,7 @@ function TOOL:ModifyTransformArray( trace, transformArray ) -- Calculates the po
 	for i, transform in pairs( transformArray ) do
 		transform:Sub( arrayPivot )
 		transform:Rotate( tempAngle )
-		transform:Add( furfacePushOffset )
+		transform:Add( surfacePushOffset )
 	end
 
 	-- Angle for each element on top of the array rotation
@@ -1412,7 +1409,7 @@ function TOOL.BuildCPanel( cpanel )
 	MakeCheckbox( cpanel, "#tool.rat.previewOffset", "rat_previewBox" )
 
 	MakeNumberWang( cpanel, "#tool.rat.sphereRadius", "rat_sphereRadius", 0, 9999, 0 )
-	MakeNumberWang( cpanel, "#tool.rat.pushAwayFromSurface", "rat_pushAwayFromSurface", 0, 9999, 0 )
+	MakeNumberWang( cpanel, "#tool.rat.pushAwayFromSurface", "rat_pushAwayFromSurface", -9999, 9999, 0 )
 
 	local label = vgui.Create( "DLabel" )
 	label:SetText( "#tool.rat.arrayType" )
