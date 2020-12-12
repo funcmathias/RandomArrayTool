@@ -871,6 +871,9 @@ end
 hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( bDrawingDepth, bDrawingSkybox )
 	local playerTool = LocalPlayer():GetTool( "rat" )
 	if ( toolActive && playerTool && !bDrawingSkybox ) then
+		-- Holster wouldn't trigger on death it seems so this is the best way I found to make sure toolActive will be false when tool is unequiped
+		toolActive = false
+
 		local previewPointAxis = tobool( playerTool:GetClientNumber( "previewPointAxis" ) )
 		local previewPointBox = tobool( playerTool:GetClientNumber( "previewPointBox" ) )
 
@@ -934,16 +937,9 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 	end
 end)
 
--- Deploy didn't seem to get called and Think would be called even when the tool is holstered so using DrawHUD instead as a hack
-function TOOL:DrawHUD()
+function TOOL:Think()
 	if ( CLIENT ) then
 		toolActive = true
-	end
-end
-
-function TOOL:Holster()
-	if ( CLIENT ) then
-		toolActive = false
 	end
 end
 
