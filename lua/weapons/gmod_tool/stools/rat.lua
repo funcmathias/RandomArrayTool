@@ -27,8 +27,10 @@ TOOL.ClientConVar["spawnChance"] = "100"
 TOOL.ClientConVar["ignoreSurfaceAngle"] = "0"
 TOOL.ClientConVar["facePlayerZ"] = "0"
 TOOL.ClientConVar["localGroundPlane"] = "0"
-TOOL.ClientConVar["previewAxis"] = "1"
-TOOL.ClientConVar["previewBox"] = "0"
+TOOL.ClientConVar["previewTraceAxisSize"] = "10"
+TOOL.ClientConVar["previewPointAxis"] = "1"
+TOOL.ClientConVar["previewPointAxisSize"] = "5"
+TOOL.ClientConVar["previewPointBox"] = "0"
 TOOL.ClientConVar["sphereRadius"] = "0"
 TOOL.ClientConVar["pushAwayFromSurface"] = "0"
 
@@ -137,7 +139,9 @@ if CLIENT then
 	language.Add( "tool.rat.ignoreSurfaceAngle", "Ignore surface angle" )
 	language.Add( "tool.rat.facePlayerZ", "Face player on Z axis" )
 	language.Add( "tool.rat.localGroundPlane", "Local player ground plane" )
-	language.Add( "tool.rat.previewPosition", "Show position previews" )
+	language.Add( "tool.rat.previewTraceAxisSizeDescription", "Hit position preview size" )
+	language.Add( "tool.rat.previewPointAxisDescription", "Show array point previews" )
+	language.Add( "tool.rat.previewPointAxisSizeDescription", "Array point preview size" )
 	language.Add( "tool.rat.previewOffset", "Show random position offset" )
 	language.Add( "tool.rat.sphereRadius", "Editing sphere radius" )
 	language.Add( "tool.rat.pushAwayFromSurface", "Push array away from surface" )
@@ -692,7 +696,7 @@ function TOOL:RightClick( trace )
 		local randomizedAnyProps = false
 
 		if ( sphereRadius == 0 ) then
-			-- Randomize prop under crosshair
+			-- Randomize prop under cursor
 			randomizedAnyProps = self:RandomizeProp( trace.Entity )
 		else
 			-- Randomize props found within sphere volume
@@ -710,7 +714,7 @@ function TOOL:RightClick( trace )
 	-- Doing client side approximate checks for user feedback from the tool since the server return doesn't work clientside when on a server, in single player this code isn't reached
 	if ( CLIENT ) then
 		if ( sphereRadius == 0 ) then
-			-- Check if prop under crosshair is a supported prop
+			-- Check if prop under cursor is a supported prop
 			return self:IsSupportedPropAndValid( trace.Entity )
 		else
 			-- Return true if there are supported props within the sphere volume
@@ -733,7 +737,7 @@ function TOOL:Reload( trace )
 		local removedAnyProps = false
 
 		if ( sphereRadius == 0 ) then
-			-- Remove prop under crosshair
+			-- Remove prop under cursor
 			removedAnyProps = self:RemoveProp( trace.Entity )
 		else
 			-- Remove props found within sphere volume
@@ -751,7 +755,7 @@ function TOOL:Reload( trace )
 	-- Doing client side approximate checks for user feedback from the tool since the server return doesn't work clientside when on a server, in single player this code isn't reached
 	if ( CLIENT ) then
 		if ( sphereRadius == 0 ) then
-			-- Check if prop under crosshair is a supported prop
+			-- Check if prop under cursor is a supported prop
 			return self:IsSupportedPropAndValid( trace.Entity )
 		else
 			-- Return true if there are supported props within the sphere volume
@@ -863,38 +867,22 @@ local function AddSpawnIcon( inputListPanel, inputModelPath ) ------------------
 	end
 end
 
--- Render axis gizmo for visualization
-local function RenderAxis( pos, ang )
-	--Rotate only changes the original vector and doesn't return anything, so need to waste some space sadly
-	local linePosX = Vector( 3, 0, 0 )
-	local linePosY = Vector( 0, 3, 0 )
-	local linePosZ = Vector( 0, 0, 3 )
-	linePosX:Rotate( ang )
-	linePosY:Rotate( ang )
-	linePosZ:Rotate( ang )
-
-	-- Render blue last to make sure it's always on top and visible
-	render.DrawLine( pos, pos + linePosX, Color( 255, 0, 0, 255 ), false ) -- Red
-	render.DrawLine( pos, pos + linePosY, Color( 0, 255, 0, 255 ), false ) -- Green
-	render.DrawLine( pos, pos + linePosZ, Color( 0, 0, 255, 255 ), false ) -- Blue
-
-	-- To compare and make sure my axis directions are correct, "developer 1" needed in console
-	-- debugoverlay.Axis( pos + Vector( -10, 0, 0 ), ang, 5, 5, true )
-end
-
 -- Render hook for drawing visualizations for array positions and some more
 hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( bDrawingDepth, bDrawingSkybox )
 	local playerTool = LocalPlayer():GetTool( "rat" )
 	if ( toolActive && playerTool && !bDrawingSkybox ) then
-		local previewAxis = tobool( playerTool:GetClientNumber( "previewAxis" ) )
-		local previewBox = tobool( playerTool:GetClientNumber( "previewBox" ) )
+		local previewPointAxis = tobool( playerTool:GetClientNumber( "previewPointAxis" ) )
+		local previewPointBox = tobool( playerTool:GetClientNumber( "previewPointBox" ) )
 
 		local trace = LocalPlayer():GetEyeTrace()
 		-- Check if we should use normal or plane trace, modifies original trace data
 		playerTool:CheckPlaneTrace( trace )
 
+		local traceHitDistance = LocalPlayer():EyePos():Distance( trace.HitPos )
+		local previewPointAxisSize = playerTool:GetClientNumber( "previewPointAxisSize" )
+
 		-- Render per position visualization
-		if ( previewAxis || previewBox ) then
+		if ( previewPointAxis || previewPointBox ) then
 			local transformTable = playerTool:CreateLocalTransformArray()
 			if ( next( transformTable ) == nil ) then return end
 
@@ -902,28 +890,33 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 			local elementAngle = playerTool:ModifyTransformArray( trace, transformTable )
 			-- elementAngle = playerTool:RandomizeRotation( elementAngle ) -- For easy debugging of random rotations
 
+			local pointXAxisLine = elementAngle:Forward() * previewPointAxisSize
+			local pointYAxisLine = elementAngle:Right() * previewPointAxisSize * -1
+			local pointZAxisLine = elementAngle:Up() * previewPointAxisSize
+
 			for i, transform in pairs( transformTable ) do
-				if ( previewBox ) then
+				if ( previewPointBox ) then
 					-- render.DrawWireframeBox( trace.HitPos + transform, elementAngle, Vector( 2.5, 2.5, 0.5 ), Vector( -2.5, -2.5, -0.5 ), Color( 0, 255, 255, 255 ), false )
 					render.DrawWireframeBox( trace.HitPos + transform, elementAngle, Vector( 2.5, 1.0, 0.25 ), Vector( -2.5, -1.0, -0.25 ), Color( 0, 255, 255, 255 ), false )
 				end
-				if ( previewAxis ) then
-					RenderAxis( trace.HitPos + transform, elementAngle )
+				if ( previewPointAxis ) then
+					local pointPosition = trace.HitPos + transform
+					render.DrawLine( pointPosition, pointPosition + pointXAxisLine, Color( 255, 0, 0, 255 ), false ) -- Red
+					render.DrawLine( pointPosition, pointPosition + pointYAxisLine, Color( 0, 255, 0, 255 ), false ) -- Green
+					render.DrawLine( pointPosition, pointPosition + pointZAxisLine, Color( 0, 0, 255, 255 ), false ) -- Blue
 				end
 			end
 		end
 
-		-- Calculate a position X units in front of the player, this is to place the main axis visalization at a set distance so it always looks the same size
-		local mainAxisPosition = LocalPlayer():EyePos()
-		mainAxisPosition:Add( LocalPlayer():EyeAngles():Forward() * 200 )
-
-		-- Render thicc axis at trace hit
+		-- Render thicc axis at cursor trace hit
+		local previewTraceAxisSize = playerTool:GetClientNumber( "previewTraceAxisSize" )
+		local previewTraceAxisDistanceSize = previewTraceAxisSize * ( traceHitDistance / 400 )
 		local correctedHitAngle = trace.HitNormal:Angle()
 		correctedHitAngle.x = correctedHitAngle.x + 90
-		local thicc = 0.05
-		render.DrawWireframeBox( mainAxisPosition, correctedHitAngle, Vector( 0, 0, 0 ), Vector( 5, thicc, thicc ), Color( 255, 0, 0, 255 ) , false )
-		render.DrawWireframeBox( mainAxisPosition, correctedHitAngle, Vector( 0, 0, 0 ), Vector( thicc, 5, thicc ), Color( 0, 255, 0, 255 ) , false )
-		render.DrawWireframeBox( mainAxisPosition, correctedHitAngle, Vector( 0, 0, 0 ), Vector( thicc, thicc, 5 ), Color( 0, 0, 255, 255 ) , false )
+		local thicc = 0.3 * ( traceHitDistance / 400 )
+		render.DrawWireframeBox( trace.HitPos, correctedHitAngle, Vector( 0, 0, 0 ), Vector( previewTraceAxisDistanceSize, thicc, thicc ), Color( 255, 0, 0, 255 ) , false )
+		render.DrawWireframeBox( trace.HitPos, correctedHitAngle, Vector( 0, 0, 0 ), Vector( thicc, previewTraceAxisDistanceSize, thicc ), Color( 0, 255, 0, 255 ) , false )
+		render.DrawWireframeBox( trace.HitPos, correctedHitAngle, Vector( 0, 0, 0 ), Vector( thicc, thicc, previewTraceAxisDistanceSize ), Color( 0, 0, 255, 255 ) , false )
 
 		-- Render single box that envelops the whole array
 		-- if ( #transformTable > 1 ) then
@@ -1405,8 +1398,10 @@ function TOOL.BuildCPanel( cpanel )
 	MakeCheckbox( cpanel, "#tool.rat.ignoreSurfaceAngle", "rat_ignoreSurfaceAngle" )
 	local checkboxFacePlayer = MakeCheckbox( cpanel, "#tool.rat.facePlayerZ", "rat_facePlayerZ" )
 	MakeCheckbox( cpanel, "#tool.rat.localGroundPlane", "rat_localGroundPlane" )
-	MakeCheckbox( cpanel, "#tool.rat.previewPosition", "rat_previewAxis" )
-	MakeCheckbox( cpanel, "#tool.rat.previewOffset", "rat_previewBox" )
+	MakeNumberWang( cpanel, "#tool.rat.previewTraceAxisSizeDescription", "rat_previewTraceAxisSize", 1, 100, 0 )
+	MakeCheckbox( cpanel, "#tool.rat.previewPointAxisDescription", "rat_previewPointAxis" )
+	MakeNumberWang( cpanel, "#tool.rat.previewPointAxisSizeDescription", "rat_previewPointAxisSize", 1, 100, 0 )
+	MakeCheckbox( cpanel, "#tool.rat.previewOffset", "rat_previewPointBox" )
 
 	MakeNumberWang( cpanel, "#tool.rat.sphereRadius", "rat_sphereRadius", 0, 9999, 0 )
 	MakeNumberWang( cpanel, "#tool.rat.pushAwayFromSurface", "rat_pushAwayFromSurface", -9999, 9999, 0 )
