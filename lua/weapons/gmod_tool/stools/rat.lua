@@ -869,11 +869,8 @@ end
 
 -- Render hook for drawing visualizations for array positions and some more
 hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( bDrawingDepth, bDrawingSkybox )
-	local playerTool = LocalPlayer():GetTool( "rat" )
+	local playerTool = LocalPlayer():GetTool()
 	if ( toolActive && playerTool && !bDrawingSkybox ) then
-		-- Holster wouldn't trigger on death it seems so this is the best way I found to make sure toolActive will be false when tool is unequiped
-		toolActive = false
-
 		local trace = LocalPlayer():GetEyeTrace()
 		-- Check if we should use normal or plane trace, modifies original trace data
 		playerTool:CheckPlaneTrace( trace )
@@ -932,6 +929,12 @@ end)
 function TOOL:Think()
 	if ( CLIENT ) then
 		toolActive = true
+	end
+end
+
+function TOOL:Holster()
+	if ( CLIENT ) then
+		toolActive = false
 	end
 end
 
