@@ -30,7 +30,6 @@ TOOL.ClientConVar["localGroundPlane"] = "0"
 TOOL.ClientConVar["previewTraceAxisSize"] = "10"
 TOOL.ClientConVar["previewPointAxis"] = "1"
 TOOL.ClientConVar["previewPointAxisSize"] = "5"
-TOOL.ClientConVar["previewPointBox"] = "0"
 TOOL.ClientConVar["sphereRadius"] = "0"
 TOOL.ClientConVar["pushAwayFromSurface"] = "0"
 
@@ -136,14 +135,12 @@ if CLIENT then
 	language.Add( "tool.rat.probabilityResetButton", "Reset prop probability" )
 	language.Add( "tool.rat.propProbabilityTooltip", "Prop spawn probability" )
 
+	language.Add( "tool.rat.previewTraceAxisSizeDescription", "Hit position preview size" )
+	language.Add( "tool.rat.sphereRadius", "Editing sphere radius" )
+
 	language.Add( "tool.rat.ignoreSurfaceAngle", "Ignore surface angle" )
 	language.Add( "tool.rat.facePlayerZ", "Face player on Z axis" )
 	language.Add( "tool.rat.localGroundPlane", "Local player ground plane" )
-	language.Add( "tool.rat.previewTraceAxisSizeDescription", "Hit position preview size" )
-	language.Add( "tool.rat.previewPointAxisDescription", "Show array point previews" )
-	language.Add( "tool.rat.previewPointAxisSizeDescription", "Array point preview size" )
-	language.Add( "tool.rat.previewOffset", "Show random position offset" )
-	language.Add( "tool.rat.sphereRadius", "Editing sphere radius" )
 	language.Add( "tool.rat.pushAwayFromSurface", "Push array away from surface" )
 
 	language.Add( "tool.rat.arrayType", "Array type" )
@@ -154,6 +151,9 @@ if CLIENT then
 	language.Add( "tool.rat.arrayTypeCheckeredInv", "Checkered inverted" )
 	language.Add( "tool.rat.arrayType2DCheckered", "2D Checkered" )
 	language.Add( "tool.rat.arrayType2DCheckeredInv", "2D Checkered inverted" )
+
+	language.Add( "tool.rat.previewPointAxisDescription", "Show array point previews" )
+	language.Add( "tool.rat.previewPointAxisSizeDescription", "Array point preview size" )
 
 	language.Add( "tool.rat.numOfProps", "Number of props: " )
 	language.Add( "tool.rat.numberIn", "Number in " )
@@ -874,18 +874,16 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 		-- Holster wouldn't trigger on death it seems so this is the best way I found to make sure toolActive will be false when tool is unequiped
 		toolActive = false
 
-		local previewPointAxis = tobool( playerTool:GetClientNumber( "previewPointAxis" ) )
-		local previewPointBox = tobool( playerTool:GetClientNumber( "previewPointBox" ) )
-
 		local trace = LocalPlayer():GetEyeTrace()
 		-- Check if we should use normal or plane trace, modifies original trace data
 		playerTool:CheckPlaneTrace( trace )
 
 		local traceHitDistance = LocalPlayer():EyePos():Distance( trace.HitPos )
+		local previewPointAxis = tobool( playerTool:GetClientNumber( "previewPointAxis" ) )
 		local previewPointAxisSize = playerTool:GetClientNumber( "previewPointAxisSize" )
 
 		-- Render per position visualization
-		if ( previewPointAxis || previewPointBox ) then
+		if ( previewPointAxis ) then
 			local transformTable = playerTool:CreateLocalTransformArray()
 			if ( next( transformTable ) == nil ) then return end
 
@@ -898,16 +896,10 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 			local pointZAxisLine = elementAngle:Up() * previewPointAxisSize
 
 			for i, transform in pairs( transformTable ) do
-				if ( previewPointBox ) then
-					-- render.DrawWireframeBox( trace.HitPos + transform, elementAngle, Vector( 2.5, 2.5, 0.5 ), Vector( -2.5, -2.5, -0.5 ), Color( 0, 255, 255, 255 ), false )
-					render.DrawWireframeBox( trace.HitPos + transform, elementAngle, Vector( 2.5, 1.0, 0.25 ), Vector( -2.5, -1.0, -0.25 ), Color( 0, 255, 255, 255 ), false )
-				end
-				if ( previewPointAxis ) then
-					local pointPosition = trace.HitPos + transform
-					render.DrawLine( pointPosition, pointPosition + pointXAxisLine, Color( 255, 0, 0, 255 ), false ) -- Red
-					render.DrawLine( pointPosition, pointPosition + pointYAxisLine, Color( 0, 255, 0, 255 ), false ) -- Green
-					render.DrawLine( pointPosition, pointPosition + pointZAxisLine, Color( 0, 0, 255, 255 ), false ) -- Blue
-				end
+				local pointPosition = trace.HitPos + transform
+				render.DrawLine( pointPosition, pointPosition + pointXAxisLine, Color( 255, 0, 0, 255 ), false ) -- Red
+				render.DrawLine( pointPosition, pointPosition + pointYAxisLine, Color( 0, 255, 0, 255 ), false ) -- Green
+				render.DrawLine( pointPosition, pointPosition + pointZAxisLine, Color( 0, 0, 255, 255 ), false ) -- Blue
 			end
 		end
 
@@ -1066,9 +1058,9 @@ local function SetCheckboxState( checkbox, state )
 	checkboxChildren[2]:SetDark( state )
 end
 
-local function MakeCheckbox( panel, titleString, convar )
+local function MakeCheckbox( panel, titleString, convar, leftSpacing )
 	local contentHolder = vgui.Create( "DSizeToContents" )
-	contentHolder:DockPadding( 0, -2, 0, -2 )
+	contentHolder:DockPadding( leftSpacing, -2, 0, -2 )
 	contentHolder:Dock( TOP )
 	panel:AddItem( contentHolder )
 
@@ -1277,14 +1269,14 @@ function TOOL.BuildCPanel( cpanel )
 
 	cpanel:AddControl( "ComboBox", { MenuButton = 1, Folder = "rat", Options = { [ "#preset.default" ] = ConVarsDefault }, CVars = table.GetKeys( ConVarsDefault ) } )
 
-	MakeCheckbox( cpanel, "#tool.rat.spawnFrozen", "rat_spawnFrozen" )
-	local checkboxRootBoneOnly = MakeCheckbox( cpanel, "#tool.rat.freezeRootBoneOnly", "rat_freezeRootBoneOnly" )
-	local checkboxRandomRagdollPose = MakeCheckbox( cpanel, "#tool.rat.randomRagdollPose", "rat_randomRagdollPose" )
-	MakeCheckbox( cpanel, "#tool.rat.noCollide", "rat_noCollide" )
-	MakeCheckbox( cpanel, "#tool.rat.noShadow", "rat_noShadow" )
-	MakeCheckbox( cpanel, "#tool.rat.randomColor", "rat_randomColor" )
-	MakeCheckbox( cpanel, "#tool.rat.randomSkin", "rat_randomSkin" )
-	MakeCheckbox( cpanel, "#tool.rat.randomBodygroup", "rat_randomBodygroup" )
+	MakeCheckbox( cpanel, "#tool.rat.spawnFrozen", "rat_spawnFrozen", 0 )
+	local checkboxRootBoneOnly = MakeCheckbox( cpanel, "#tool.rat.freezeRootBoneOnly", "rat_freezeRootBoneOnly", 10 )
+	local checkboxRandomRagdollPose = MakeCheckbox( cpanel, "#tool.rat.randomRagdollPose", "rat_randomRagdollPose", 10 )
+	MakeCheckbox( cpanel, "#tool.rat.noCollide", "rat_noCollide", 0 )
+	MakeCheckbox( cpanel, "#tool.rat.noShadow", "rat_noShadow", 0 )
+	MakeCheckbox( cpanel, "#tool.rat.randomColor", "rat_randomColor", 0 )
+	MakeCheckbox( cpanel, "#tool.rat.randomSkin", "rat_randomSkin", 0 )
+	MakeCheckbox( cpanel, "#tool.rat.randomBodygroup", "rat_randomBodygroup", 0 )
 
 	cpanel:ControlHelp( "" )
 
@@ -1391,15 +1383,12 @@ function TOOL.BuildCPanel( cpanel )
 
 
 	-- [[----------------------------------------------------------------]] -- Array visualization options
-	MakeCheckbox( cpanel, "#tool.rat.ignoreSurfaceAngle", "rat_ignoreSurfaceAngle" )
-	local checkboxFacePlayer = MakeCheckbox( cpanel, "#tool.rat.facePlayerZ", "rat_facePlayerZ" )
-	MakeCheckbox( cpanel, "#tool.rat.localGroundPlane", "rat_localGroundPlane" )
 	MakeNumberWang( cpanel, "#tool.rat.previewTraceAxisSizeDescription", "rat_previewTraceAxisSize", 1, 100, 0 )
-	MakeCheckbox( cpanel, "#tool.rat.previewPointAxisDescription", "rat_previewPointAxis" )
-	MakeNumberWang( cpanel, "#tool.rat.previewPointAxisSizeDescription", "rat_previewPointAxisSize", 1, 100, 0 )
-	MakeCheckbox( cpanel, "#tool.rat.previewOffset", "rat_previewPointBox" )
-
 	MakeNumberWang( cpanel, "#tool.rat.sphereRadius", "rat_sphereRadius", 0, 9999, 0 )
+
+	MakeCheckbox( cpanel, "#tool.rat.ignoreSurfaceAngle", "rat_ignoreSurfaceAngle", 0 )
+	local checkboxFacePlayer = MakeCheckbox( cpanel, "#tool.rat.facePlayerZ", "rat_facePlayerZ", 10 )
+	MakeCheckbox( cpanel, "#tool.rat.localGroundPlane", "rat_localGroundPlane", 0 )
 	MakeNumberWang( cpanel, "#tool.rat.pushAwayFromSurface", "rat_pushAwayFromSurface", -9999, 9999, 0 )
 
 	local label = vgui.Create( "DLabel" )
@@ -1428,6 +1417,10 @@ function TOOL.BuildCPanel( cpanel )
 	comboBox.OnSelect = function( self, index, value )
 		GetConVar( "rat_arrayType" ):SetInt( index )
 	end
+
+
+	MakeCheckbox( cpanel, "#tool.rat.previewPointAxisDescription", "rat_previewPointAxis", 0 )
+	MakeNumberWang( cpanel, "#tool.rat.previewPointAxisSizeDescription", "rat_previewPointAxisSize", 1, 100, 0 )
 
 
 	-- [[----------------------------------------------------------------]] -- Prop Counter
@@ -1560,36 +1553,10 @@ function TOOL.BuildCPanel( cpanel )
 	"rat_xRotationRandomStepped", "rat_yRotationRandomStepped", "rat_zRotationRandomStepped" )
 
 
-	-- [[----------------------------------------------------------------]] -- DEBUG
-
+	-- Just a ui spacer at the bottom
 	local div = vgui.Create( "DVerticalDivider" )
-	-- div:Dock( FILL ) -- Make the divider fill the space of the DFrame
 	div:SetPaintBackground( false )
 	cpanel:AddItem( div )
-
-	local div2 = vgui.Create( "DVerticalDivider" )
-	-- div:Dock( FILL ) -- Make the divider fill the space of the DFrame
-	div2:SetPaintBackground( false )
-	cpanel:AddItem( div2 )
-
-
-
-	-- Debug buttons
-	local CheckButton = vgui.Create( "DButton" )
-	CheckButton:SetText( "Check List" )
-	CheckButton.DoClick = function()
-		LocalPlayer():GetTool( "rat" ):CheckList()
-	end
-	cpanel:AddItem( CheckButton )
-
-	local UpdateButton = vgui.Create( "DButton" )
-	UpdateButton:SetText( "Update Control Panel" )
-	UpdateButton.DoClick = function()
-		LocalPlayer():GetTool( "rat" ):RebuildCPanel()
-	end
-	cpanel:AddItem( UpdateButton )
-
-
 
 	-------------------------------------------------
 	-- CHECKBOX INITIAL STATES AND STATE CALLBACKS --
