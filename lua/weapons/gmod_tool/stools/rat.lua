@@ -197,14 +197,60 @@ if SERVER then
 	util.AddNetworkString( "sendTables" )
 
 	-- When the server receives the clients network information
+	-- Adds the players model table in a server side table with their steam id as the key
 	net.Receive( "sendTables", function( len, player )
 		local sid = player:SteamID()
 		modelPathTable[sid] = net.ReadTable()
+	end )
+end
 
-		-- print( "--- Model Path Table Start ---" )
-		-- PrintTable( modelPathTable )
-		-- print( "--- Model Path Table End ---" )
-	end)
+-- Send the local model path table to the server
+local function UpdateServerTable()
+	net.Start( "sendTables" )
+	net.WriteTable( modelPathTable )
+	net.SendToServer()
+end
+
+-- Debug print
+function TOOL:CheckList()
+	print( "--- Model Path Table Start ---" )
+	PrintTable( modelPathTable )
+	print( "--- Model Path Table End ---" )
+end
+
+-- Checks if input entity is a kind of prop that is supported by this tool
+function TOOL:IsSupportedPropAndValid( entity )
+	if ( !IsValid( entity ) ) then return false end
+	local entityClass = entity:GetClass()
+
+	if ( entityClass == "prop_physics" || entityClass == "prop_effect" || entityClass == "prop_dynamic" || entity:IsRagdoll() ) then
+		return true
+	end
+
+	return false
+end
+
+-- Checks if path is for a model or a folder, if a folder then it returns a table of models in that folder
+local function CheckModelPath( inputDirectory )
+	if string.find( inputDirectory, "%.mdl" ) then
+		-- print ( "The word .mdl was found in path: " .. inputDirectory )
+		local tempTable = { inputDirectory }
+		return tempTable
+	else
+		local tempMdlTable = {}
+		-- print( "==[LOADING " .. inputDirectory .. "]===========================================" )
+		local fileList = file.Find( inputDirectory .. "/*.mdl", "GAME" )
+		-- PrintTable( fileList )
+		for i, fileName in pairs( fileList ) do
+			local directory = inputDirectory .. "/" .. fileName
+			-- resource.AddFile( directory )
+			table.insert( tempMdlTable, directory )
+			-- print( "    >Loaded " .. directory )
+		end
+		-- print( "    >Loaded the directory " .. inputDirectory )
+
+		return tempMdlTable
+	end
 end
 
 -- Returns a random model path depending on probability
@@ -218,7 +264,7 @@ local function GetRandomModelPath( sid )
 	-- Generate a random number and loop until it goes under 0 and return that path
 	local random = math.Rand( 0, probabilitySum )
 	for path, probability in pairs( modelPathTable[sid] ) do
-		-- print("path " .. path .. "     random " .. random .. "     probability " .. probability)
+		-- print( "path " .. path .. "     random " .. random .. "     probability " .. probability )
 		random = random - probability
 		if random <= 0 then return path end
 	end
@@ -251,6 +297,8 @@ function TOOL:CheckPlaneTrace( trace )
 		trace.HitNormal.Z = trace.HitNormal.Z + 90
 	end
 end
+
+-- [[----------------------------------------------------------------]] -- ARRAY CREATION AND MODIFICATION
 
 -- Calculates the position array for both preview and spawning
 function TOOL:CreateLocalTransformArray()
@@ -455,6 +503,8 @@ function TOOL:RandomizeRotation( baseRotation )
 	return tempAngle
 end
 
+-- [[----------------------------------------------------------------]] -- PROP MANIPULATION
+
 -- Randomizes input entity in multiple ways
 function TOOL:RandomizeProp( entity )
 	if ( !self:IsSupportedPropAndValid( entity ) ) then return false end
@@ -467,7 +517,6 @@ function TOOL:RandomizeProp( entity )
 	local entityClass = entity:GetClass()
 	if ( entityClass == "prop_effect" ) then entity = entity.AttachedEntity end -- Needed to change prop_effects when tracing directly
 
-	-- print( "entity class " .. entity:GetClass() )
 	-- print( "entity skin count " .. entity:SkinCount() )
 	-- print( "entity number of bodygroup" .. entity:GetNumBodyGroups() )
 
@@ -561,9 +610,9 @@ function TOOL:SpawnPropTable( player, trace, sid )
 				local sequenceLabel = animationEntity:GetSequenceInfo( sequenceRandom ).label
 
 				-- Animations containing these words are mostly T-pose so reroll and choose a different animation
-				while ( string.find( sequenceLabel, "gesture") || string.find( sequenceLabel, "accent") || string.find( sequenceLabel, "Delta") ||
-				string.find( sequenceLabel, "Frame") || string.find( sequenceLabel, "g_") || string.find( sequenceLabel, "G_") ||
-				string.find( sequenceLabel, "apex") || string.find( sequenceLabel, "Spine") ) do
+				while ( string.find( sequenceLabel, "gesture" ) || string.find( sequenceLabel, "accent" ) || string.find( sequenceLabel, "Delta" ) ||
+				string.find( sequenceLabel, "Frame" ) || string.find( sequenceLabel, "g_" ) || string.find( sequenceLabel, "G_" ) ||
+				string.find( sequenceLabel, "apex" ) || string.find( sequenceLabel, "Spine" ) ) do
 					sequenceRandom = math.random( 1, sequenceCount - 1 )
 					sequenceLabel = animationEntity:GetSequenceInfo( sequenceRandom ).label
 					-- print( "rerolled " .. sequenceLabel )
@@ -655,19 +704,7 @@ function TOOL:RemoveProp( entity )
 	return true
 end
 
--- Checks if input entity is a kind of prop that is supported by this tool
-function TOOL:IsSupportedPropAndValid( entity )
-	if ( !IsValid( entity ) ) then return false end
-	local entityClass = entity:GetClass()
-
-	if ( entityClass == "prop_physics" || entityClass == "prop_effect" || entityClass == "prop_dynamic" || entity:IsRagdoll() ) then
-		return true
-	else
-		return false
-	end
-end
-
-
+-- [[----------------------------------------------------------------]] -- TOOL ACTIONS
 
 function TOOL:LeftClick( trace )
 	if ( SERVER ) then
@@ -771,101 +808,33 @@ function TOOL:Reload( trace )
 	end
 end
 
-
-
--- Debug print
-function TOOL:CheckList()
-	print( "--- Model Path Table Start ---" )
-	PrintTable( modelPathTable )
-	print( "--- Model Path Table End ---" )
-end
-
--- Send the local model path table to the server
-local function updateServerTables()
-	net.Start( "sendTables" )
-	net.WriteTable( modelPathTable )
-	net.SendToServer()
-end
-
--- Checks if path is for a model or a folder, if a folder then it returns a table of models in that folder
-local function CheckModelPath( inputDirectory )
-	if string.find( inputDirectory, "%.mdl" ) then
-		-- print ( "The word .mdl was found in path: " .. inputDirectory )
-		local tempTable = { inputDirectory }
-		return tempTable
-	else
-		local tempMdlTable = {}
-		-- print( "==[LOADING " .. inputDirectory .. "]===========================================" )
-		local fileList = file.Find( inputDirectory .. "/*.mdl", "GAME" )
-		-- PrintTable( fileList )
-		for i, fileName in pairs( fileList ) do
-			local directory = inputDirectory .. "/" .. fileName
-			-- resource.AddFile( directory )
-			table.insert( tempMdlTable, directory )
-			-- print( "    >Loaded " .. directory )
-		end
-		-- print( "    >Loaded the directory " .. inputDirectory )
-
-		return tempMdlTable
+function TOOL:Think()
+	if ( CLIENT ) then
+		toolActive = true
 	end
 end
 
--- Creates icons for the prop list
-local function AddSpawnIcon( inputListPanel, inputModelPath ) --------------------------------------------------------------------
-	for i, path in ipairs( CheckModelPath( inputModelPath ) ) do
-		-- If path (model) already exists then don't add a new spawn icon for it
-		if ( modelPathTable[path] != nil ) then continue end
-
-		local ListItem = inputListPanel:Add( "SpawnIcon" )
-		ListItem:SetSize( 64, 64 )
-		-- print( "Model path for icon is " .. path )
-		ListItem:SetModel( path )
-
-		ListItem.DoRightClick = function()
-			if ( modelPathTable[path] != nil ) then
-				modelPathTable[path] = nil
-			end
-			updateServerTables()
-			-- print( "Going to remove myself" )
-			ListItem:Remove()
-		end
-
-		-- Probability UI
-		local probabilityTextBlack = vgui.Create( "DLabel", ListItem )
-		probabilityTextBlack:SetText( string.format( "%.2f", 1 ) )
-		probabilityTextBlack:Dock( NODOCK )
-		probabilityTextBlack:SetPos( 7, 3 )
-		probabilityTextBlack:SetSize( 40, 15 )
-		probabilityTextBlack:SetColor( color_black )
-
-		local probabilityTextWhite = vgui.Create( "DLabel", ListItem )
-		probabilityTextWhite:SetText( string.format( "%.2f", 1 ) )
-		probabilityTextWhite:Dock( NODOCK )
-		probabilityTextWhite:SetPos( 5, 2 )
-		probabilityTextWhite:SetSize( 40, 15 )
-		probabilityTextWhite:SetColor( color_white )
-
-		local probabilityScratch = vgui.Create( "DNumberScratch", ListItem )
-		probabilityScratch:Dock( NODOCK )
-		probabilityScratch:SetPos( 5, 5 )
-		probabilityScratch:SetValue( 1 )
-		probabilityScratch:SetMin( 0.01 )
-		probabilityScratch:SetMax( 10 )
-		probabilityScratch:SetDecimals( 2 )
-		probabilityScratch:SetTooltip( "#tool.rat.propProbabilityTooltip" )
-		probabilityScratch:SetColor( Color( 0, 0, 0, 0 ) )
-		function probabilityScratch:OnValueChanged( val )
-			local probabilityText = string.format( "%.2f", val )
-			probabilityTextBlack:SetText( probabilityText )
-			probabilityTextWhite:SetText( probabilityText )
-
-			modelPathTable[path] = val
-			updateServerTables()
-		end
-
-		modelPathTable[path] = 1
+function TOOL:Holster()
+	if ( CLIENT ) then
+		toolActive = false
 	end
 end
+
+----------------------------------------------------
+----------------------------------------------------
+----------------------------------------------------
+----------------------------------------------------
+----------------------------------------------------
+----------------------------------------------------
+-------------------------UI-------------------------
+----------------------------------------------------
+----------------------------------------------------
+----------------------------------------------------
+----------------------------------------------------
+----------------------------------------------------
+----------------------------------------------------
+
+-- [[----------------------------------------------------------------]] -- WORLD SPACE PREVIEWS
 
 -- Render hook for drawing visualizations for array positions and some more
 hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( bDrawingDepth, bDrawingSkybox )
@@ -924,33 +893,7 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 			render.DrawWireframeSphere( trace.HitPos, sphereRadius, 10, 10, Color( 0, 255, 255, 255 ), true )
 		end
 	end
-end)
-
-function TOOL:Think()
-	if ( CLIENT ) then
-		toolActive = true
-	end
-end
-
-function TOOL:Holster()
-	if ( CLIENT ) then
-		toolActive = false
-	end
-end
-
-----------------------------------------------------
-----------------------------------------------------
-----------------------------------------------------
-----------------------------------------------------
-----------------------------------------------------
-----------------------------------------------------
--------------------------UI-------------------------
-----------------------------------------------------
-----------------------------------------------------
-----------------------------------------------------
-----------------------------------------------------
-----------------------------------------------------
-----------------------------------------------------
+end )
 
 -- [[----------------------------------------------------------------]] -- TOOL SCREEN
 
@@ -1040,7 +983,62 @@ function TOOL:DrawToolScreen( width, height )
 	Draw2DAxisPlane( Vector( 128, 190 ), axisAngle:Forward() * -1, axisAngle:Up(), lineLength, Color( 255, 100, 255, 2 ) )
 end
 
--- [[----------------------------------------------------------------]] -- CONTROL PANEL
+-- [[----------------------------------------------------------------]] -- UI CREATION FUNCTIONS
+
+-- Creates icons for the prop list
+local function AddSpawnIcon( inputListPanel, inputModelPath )
+	for i, path in ipairs( CheckModelPath( inputModelPath ) ) do
+		-- If path (model) already exists then don't add a new spawn icon for it
+		if ( modelPathTable[path] != nil ) then continue end
+
+		local ListItem = inputListPanel:Add( "SpawnIcon" )
+		ListItem:SetSize( 64, 64 )
+		ListItem:SetModel( path )
+
+		ListItem.DoRightClick = function()
+			if ( modelPathTable[path] != nil ) then
+				modelPathTable[path] = nil
+			end
+			UpdateServerTable()
+			ListItem:Remove()
+		end
+
+		-- Probability UI
+		local probabilityTextBlack = vgui.Create( "DLabel", ListItem )
+		probabilityTextBlack:SetText( string.format( "%.2f", 1 ) )
+		probabilityTextBlack:Dock( NODOCK )
+		probabilityTextBlack:SetPos( 7, 3 )
+		probabilityTextBlack:SetSize( 40, 15 )
+		probabilityTextBlack:SetColor( color_black )
+
+		local probabilityTextWhite = vgui.Create( "DLabel", ListItem )
+		probabilityTextWhite:SetText( string.format( "%.2f", 1 ) )
+		probabilityTextWhite:Dock( NODOCK )
+		probabilityTextWhite:SetPos( 5, 2 )
+		probabilityTextWhite:SetSize( 40, 15 )
+		probabilityTextWhite:SetColor( color_white )
+
+		local probabilityScratch = vgui.Create( "DNumberScratch", ListItem )
+		probabilityScratch:Dock( NODOCK )
+		probabilityScratch:SetPos( 5, 5 )
+		probabilityScratch:SetValue( 1 )
+		probabilityScratch:SetMin( 0.01 )
+		probabilityScratch:SetMax( 10 )
+		probabilityScratch:SetDecimals( 2 )
+		probabilityScratch:SetTooltip( "#tool.rat.propProbabilityTooltip" )
+		probabilityScratch:SetColor( Color( 0, 0, 0, 0 ) )
+		function probabilityScratch:OnValueChanged( val )
+			local probabilityText = string.format( "%.2f", val )
+			probabilityTextBlack:SetText( probabilityText )
+			probabilityTextWhite:SetText( probabilityText )
+
+			modelPathTable[path] = val
+			UpdateServerTable()
+		end
+
+		modelPathTable[path] = 1
+	end
+end
 
 local function MakeText( panel, color, str )
 	local label = vgui.Create( "DLabel" )
@@ -1108,7 +1106,7 @@ local function MakeNumberWang( panel, titleString, convar, min, max, leftSpacing
 	-- Callback to update wangs when preset changes
 	cvars.AddChangeCallback( convar, function( convarName, valueOld, valueNew )
 		numbox:SetValue( cvars.Number( convarName ) )
-	end, convar .. "_callback")
+	end, convar .. "_callback" )
 
 	return dList
 end
@@ -1189,11 +1187,11 @@ local function MakeGapSliderWangCombo( panel, sliderString, axisColor, conVar1, 
 
 	cvars.AddChangeCallback( conVar2, function( convarName, valueOld, valueNew )
 		numbox:SetValue( cvars.Number( convarName ) )
-	end, conVar2 .. "_callback")
+	end, conVar2 .. "_callback" )
 
 	cvars.AddChangeCallback( conVar3, function( convarName, valueOld, valueNew )
 		numbox2:SetValue( cvars.Number( convarName ) )
-	end, conVar3 .. "_callback")
+	end, conVar3 .. "_callback" )
 end
 
 local function MakeCollapsible( panel, titleString, toggleConVar )
@@ -1238,26 +1236,7 @@ local function ChangeAndColorPropCount( panel, count )
 	end
 end
 
-if CLIENT then
-	-- Console command to rebuild the tool ui
-	concommand.Add("rat_rebuildCPanel", function( ply, cmd, args )
-		ply:GetTool( "rat" ):RebuildCPanel()
-	end)
-end
-
--- Debug tool ui rebuild
-function TOOL:RebuildCPanel()
-	local panel = controlpanel.Get( "rat" )
-	if ( !panel ) then MsgN( "Rat panel not found." ) return end
-
-	modelPathTable = {}
-	updateServerTables()
-
-	panel:Clear()
-	self.BuildCPanel( panel )
-
-	print("Rebuilt rat panel")
-end
+-- [[----------------------------------------------------------------]] -- CONTROL PANEL
 
 -- Create table of all tool ConVars, used for presets
 local ConVarsDefault = TOOL:BuildConVarList()
@@ -1302,8 +1281,8 @@ function TOOL.BuildCPanel( cpanel )
 	-- [[----------------------------------------------------------------]] -- Prop Grid List
 	cpanel:TextEntry( "#tool.rat.mdlAdd", "rat_mdlName" )
 
-
-	local Scroll = vgui.Create( "DScrollPanel" ) -- Create the Scroll panel ---------------------------------------------------
+	-- Create the Scroll panel
+	local Scroll = vgui.Create( "DScrollPanel" )
 	Scroll:SetSize( 300, 204 )
 	Scroll:SetPaintBackground( true )
 	Scroll:SetBackgroundColor( Color( 240, 240, 240, 255 ) )
@@ -1325,12 +1304,12 @@ function TOOL.BuildCPanel( cpanel )
 				AddSpawnIcon( MdlView, currentMdlPath )
 			end
 
-			updateServerTables()
+			UpdateServerTable()
 
 			if ( inputPanels[1]:GetName() != "SpawnIcon" ) then return end
 			-- print( "You just dropped " .. inputPanels[1]:GetModelName() .. " on me." )
 		end
-	end)
+	end )
 
 
 	local AddButton = vgui.Create( "DButton" )
@@ -1338,7 +1317,7 @@ function TOOL.BuildCPanel( cpanel )
 	AddButton:SetTooltip( "#tool.rat.mdlAddButton" )
 	AddButton.DoClick = function()
 		AddSpawnIcon( MdlView, GetConVar( "rat_mdlName" ):GetString() )
-		updateServerTables()
+		UpdateServerTable()
 	end
 
 	-- Some weird positioning here for everything to be able to reference what it needs to but still be in the right order in the ui
@@ -1380,7 +1359,7 @@ function TOOL.BuildCPanel( cpanel )
 			Icon:Remove()
 		end
 		modelPathTable = {}
-		updateServerTables()
+		UpdateServerTable()
 	end
 
 
@@ -1573,13 +1552,34 @@ function TOOL.BuildCPanel( cpanel )
 	cvars.AddChangeCallback( "rat_spawnFrozen", function( convarName, valueOld, valueNew )
 		SetCheckboxState( checkboxRootBoneOnly, tobool( valueNew ) )
 		SetCheckboxState( checkboxRandomRagdollPose, !GetConVar( "rat_freezeRootBoneOnly" ):GetBool() && tobool( valueNew ) )
-	end, "rat_spawnFrozen_callback")
+	end, "rat_spawnFrozen_callback" )
 
 	cvars.AddChangeCallback( "rat_freezeRootBoneOnly", function( convarName, valueOld, valueNew )
 		SetCheckboxState( checkboxRandomRagdollPose, GetConVar( "rat_spawnFrozen" ):GetBool() && !tobool( valueNew ) )
-	end, "rat_freezeRootBoneOnly_callback")
+	end, "rat_freezeRootBoneOnly_callback" )
 
 	cvars.AddChangeCallback( "rat_ignoreSurfaceAngle", function( convarName, valueOld, valueNew )
 		SetCheckboxState( checkboxFacePlayer, tobool( valueNew ) )
-	end, "rat_ignoreSurfaceAngle_callback")
+	end, "rat_ignoreSurfaceAngle_callback" )
+end
+
+-- Debug tool ui rebuild
+function TOOL:RebuildCPanel()
+	local panel = controlpanel.Get( "rat" )
+	if ( !panel ) then MsgN( "Rat panel not found." ) return end
+
+	modelPathTable = {}
+	UpdateServerTable()
+
+	panel:Clear()
+	self.BuildCPanel( panel )
+
+	print( "Rebuilt rat panel" )
+end
+
+if CLIENT then
+	-- Console command to rebuild the tool ui
+	concommand.Add( "rat_rebuildCPanel", function( ply, cmd, args )
+		ply:GetTool( "rat" ):RebuildCPanel()
+	end )
 end
