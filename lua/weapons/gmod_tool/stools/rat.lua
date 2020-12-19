@@ -993,7 +993,7 @@ local function Draw2DAxisPlane( startPosition, axisVector1, axisVector2, axisLen
 end
 
 -- Make material for tool screen
-local toolScreenRatMaterial = Material( "rat_assets/rat_head.png", "noclamp ignorez mips" )
+local toolScreenRatMaterial = Material( "materials/rat_assets/rat_head.png", "noclamp ignorez mips" )
 
 -- Draw tool screen, size is 256 x 256
 function TOOL:DrawToolScreen( width, height )

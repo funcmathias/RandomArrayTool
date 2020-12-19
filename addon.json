@@ -1,0 +1,11 @@
+{
+	"title"		:	"Random Array Tool",
+	"type"		:	"tool",
+	"tags"		:	[ "fun", "build" ],
+	"ignore"	:
+	[
+		".git*",
+		"*.md",
+		"info.txt"
+	]
+}
