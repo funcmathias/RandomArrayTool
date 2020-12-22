@@ -20,29 +20,32 @@ TOOL.ClientConVar["noShadow"] = "0"
 TOOL.ClientConVar["randomColor"] = "0"
 TOOL.ClientConVar["randomSkin"] = "1"
 TOOL.ClientConVar["randomBodygroup"] = "1"
-TOOL.ClientConVar["randomSkip"] = "0"
 
+TOOL.ClientConVar["randomSkip"] = "0"
 TOOL.ClientConVar["spawnChance"] = "100"
 
+TOOL.ClientConVar["mdlName"] = ""
+
+TOOL.ClientConVar["previewTraceAxisSize"] = "10"
+TOOL.ClientConVar["sphereRadius"] = "0"
 TOOL.ClientConVar["ignoreSurfaceAngle"] = "0"
 TOOL.ClientConVar["facePlayerZ"] = "0"
 TOOL.ClientConVar["localGroundPlane"] = "0"
-TOOL.ClientConVar["previewTraceAxisSize"] = "10"
-TOOL.ClientConVar["previewPointAxis"] = "1"
-TOOL.ClientConVar["previewPointAxisSize"] = "5"
-TOOL.ClientConVar["sphereRadius"] = "0"
 TOOL.ClientConVar["pushAwayFromSurface"] = "0"
 
-TOOL.ClientConVar["mdlName"] = ""
+
+
+-- Array ConVars
+TOOL.ClientConVar["arrayType"] = "1"
+TOOL.ClientConVar["previewPointAxis"] = "1"
+TOOL.ClientConVar["previewPointAxisSize"] = "5"
+TOOL.ClientConVar["previewArrayBounds"] = "0"
+TOOL.ClientConVar["arrayCount"] = "1"
 
 -- UI foldout states
 TOOL.ClientConVar["pointTransformExpanded"] = "1"
 TOOL.ClientConVar["arrayTransformsExpanded"] = "0"
 TOOL.ClientConVar["randomPointTransformsExpanded"] = "0"
-
--- Array ConVars
-TOOL.ClientConVar["arrayType"] = "1"
-TOOL.ClientConVar["arrayCount"] = "1"
 
 -- X axis ConVars
 TOOL.ClientConVar["xAmount"] = "3"
@@ -117,8 +120,8 @@ if CLIENT then
 	language.Add( "tool.rat.randomColor", "Apply random colors" )
 	language.Add( "tool.rat.randomSkin", "Randomize skins" )
 	language.Add( "tool.rat.randomBodygroup", "Randomize bodygroups" )
-	language.Add( "tool.rat.randomSkip", "Skip this many bodygroups" )
 
+	language.Add( "tool.rat.randomSkip", "Skip this many bodygroups" )
 	language.Add( "tool.rat.spawnChance", "Spawn chance (0 - 100)" )
 
 	language.Add( "tool.rat.listHelpTitle", "Prop list help - Click for info" )
@@ -154,6 +157,7 @@ if CLIENT then
 
 	language.Add( "tool.rat.previewPointAxisDescription", "Show array point previews" )
 	language.Add( "tool.rat.previewPointAxisSizeDescription", "Array point preview size" )
+	language.Add( "tool.rat.previewArrayBoundsDescription", "Show array bounds preview" )
 
 	language.Add( "tool.rat.numOfProps", "Number of props: " )
 	language.Add( "tool.rat.numberIn", "Number in " )
@@ -230,24 +234,20 @@ function TOOL:IsSupportedPropAndValid( entity )
 	return false
 end
 
--- Checks if path is for a model or a folder, if a folder then it returns a table of models in that folder
-local function CheckModelPath( inputDirectory )
-	if string.find( inputDirectory, "%.mdl" ) then
-		-- print ( "The word .mdl was found in path: " .. inputDirectory )
-		local tempTable = { inputDirectory }
-		return tempTable
+-- Checks if path is for a model or a folder, if a folder then it returns a table of models in that folder. There are some instances where double // can occur but doesn't really matter
+local function CheckModelPath( inputPath )
+	-- Does path end with .mdl, if not then assume it's a folder path and set isModel to false
+	if ( inputPath:sub( -4 ) == ".mdl" ) then
+		return { inputPath }
 	else
-		local tempMdlTable = {}
-		-- print( "==[LOADING " .. inputDirectory .. "]===========================================" )
-		local fileList = file.Find( inputDirectory .. "/*.mdl", "GAME" )
-		-- PrintTable( fileList )
-		for i, fileName in pairs( fileList ) do
-			local directory = inputDirectory .. "/" .. fileName
-			-- resource.AddFile( directory )
-			table.insert( tempMdlTable, directory )
-			-- print( "    >Loaded " .. directory )
+		-- Finds every model file in a path and adds them to a table
+		local tempMdlTable = file.Find( inputPath .. "/*.mdl", "GAME" )
+
+		-- file.Find returns file name, so need to add the rest of the path
+		for i, fileName in pairs( tempMdlTable ) do
+			tempMdlTable[i] = inputPath .. "/" .. fileName
+			-- print( i .. "   Found model in path:   " .. tempMdlTable[i] )
 		end
-		-- print( "    >Loaded the directory " .. inputDirectory )
 
 		return tempMdlTable
 	end
@@ -847,6 +847,7 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 		local traceHitDistance = LocalPlayer():EyePos():Distance( trace.HitPos )
 		local previewPointAxis = tobool( playerTool:GetClientNumber( "previewPointAxis" ) )
 		local previewPointAxisSize = playerTool:GetClientNumber( "previewPointAxisSize" )
+		local previewArrayBounds = tobool( playerTool:GetClientNumber( "previewArrayBounds" ) )
 
 		-- Render per position visualization
 		if ( previewPointAxis ) then
@@ -880,11 +881,13 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 		render.DrawWireframeBox( trace.HitPos, correctedHitAngle, Vector( 0, 0, 0 ), Vector( thicc, thicc, previewTraceAxisDistanceSize ), Color( 0, 0, 255, 255 ) , false )
 
 		-- Render single box that envelops the whole array
-		-- if ( #transformTable > 1 ) then
-		-- 	local startPos = transformTable[0]
-		-- 	local endPos = transformTable[#transformTable]
-		-- 	render.DrawWireframeBox( trace.HitPos, Angle(), startPos, endPos, Color( 0, 255, 255, 255 ), false )
-		-- end
+		if ( previewArrayBounds ) then
+			local arrayPivot = Vector( playerTool:GetClientNumber( "xArrayPivot" ), playerTool:GetClientNumber( "yArrayPivot" ), playerTool:GetClientNumber( "zArrayPivot" ) )
+			local boundEdgeSpacing = Vector( -10, -10, -10 )
+			local boundOffset = maxArrayPosition * arrayPivot
+			boundOffset:Rotate( correctedHitAngle )
+			render.DrawWireframeBox( trace.HitPos - boundOffset, correctedHitAngle, boundEdgeSpacing, maxArrayPosition - boundEdgeSpacing, Color( 0, 255, 255, 127 ), false )
+		end
 
 		-- Render sphere for sphere volume
 		local sphereRadius = playerTool:GetClientNumber( "sphereRadius" )
@@ -1403,6 +1406,7 @@ function TOOL.BuildCPanel( cpanel )
 
 	MakeCheckbox( cpanel, "#tool.rat.previewPointAxisDescription", "rat_previewPointAxis", 0 )
 	MakeNumberWang( cpanel, "#tool.rat.previewPointAxisSizeDescription", "rat_previewPointAxisSize", 1, 100, 0 )
+	MakeCheckbox( cpanel, "#tool.rat.previewArrayBoundsDescription", "rat_previewArrayBounds", 0 )
 
 
 	-- [[----------------------------------------------------------------]] -- Prop Counter
