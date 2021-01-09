@@ -19,9 +19,12 @@ TOOL.ClientConVar["noCollide"] = "0"
 TOOL.ClientConVar["noShadow"] = "0"
 TOOL.ClientConVar["randomColor"] = "0"
 TOOL.ClientConVar["randomSkin"] = "1"
+TOOL.ClientConVar["randomSkinStart"] = "0"
+TOOL.ClientConVar["randomSkinEnd"] = "100"
 TOOL.ClientConVar["randomBodygroup"] = "1"
+TOOL.ClientConVar["randomBodygroupStart"] = "0"
+TOOL.ClientConVar["randomBodygroupEnd"] = "100"
 
-TOOL.ClientConVar["randomSkip"] = "0"
 TOOL.ClientConVar["spawnChance"] = "100"
 
 TOOL.ClientConVar["mdlName"] = ""
@@ -118,10 +121,13 @@ if CLIENT then
 	language.Add( "tool.rat.noCollide", "No collide (world only)" )
 	language.Add( "tool.rat.noShadow", "No dynamic shadow" )
 	language.Add( "tool.rat.randomColor", "Apply random colors" )
-	language.Add( "tool.rat.randomSkin", "Randomize skins" )
-	language.Add( "tool.rat.randomBodygroup", "Randomize bodygroups" )
 
-	language.Add( "tool.rat.randomSkip", "Skip this many bodygroups" )
+	language.Add( "tool.rat.randomSkin", "Randomize skins" )
+	language.Add( "tool.rat.randomSkinRange", "Skin range" )
+	language.Add( "tool.rat.randomBodygroup", "Randomize bodygroups" )
+	language.Add( "tool.rat.randomBodygroupRange", "Bodygroup range" )
+	language.Add( "tool.rat.rangeTo", "to" )
+
 	language.Add( "tool.rat.spawnChance", "Spawn chance (0 - 100)" )
 
 	language.Add( "tool.rat.listHelpTitle", "Prop list help - Click for info" )
@@ -510,28 +516,37 @@ function TOOL:RandomizeProp( entity )
 	if ( !self:IsSupportedPropAndValid( entity ) ) then return false end
 
 	local randomSkin = tobool( self:GetClientNumber( "randomSkin" ) )
+	local randomSkinStart = self:GetClientNumber( "randomSkinStart" )
+	local randomSkinEnd = self:GetClientNumber( "randomSkinEnd" )
 	local randomBodygroup = tobool( self:GetClientNumber( "randomBodygroup" ) )
+	local randomBodygroupStart = self:GetClientNumber( "randomBodygroupStart" ) + 1
+	local randomBodygroupEnd = self:GetClientNumber( "randomBodygroupEnd" ) + 1
 	local randomColor = tobool( self:GetClientNumber( "randomColor" ) )
-	local randomSkip = self:GetClientNumber( "randomSkip" )
 
 	local entityClass = entity:GetClass()
 	if ( entityClass == "prop_effect" ) then entity = entity.AttachedEntity end -- Needed to change prop_effects when tracing directly
 
 	-- print( "entity skin count " .. entity:SkinCount() )
-	-- print( "entity number of bodygroup" .. entity:GetNumBodyGroups() )
+	-- print( "entity number of bodygroup " .. entity:GetNumBodyGroups() )
 
-	-- Randomize skin
+	-- Pick a random skin within the range
+	randomSkinEnd = ( entity:SkinCount() - 1 > randomSkinEnd ) && randomSkinEnd || entity:SkinCount() - 1
+
 	if ( randomSkin ) then
-		entity:SetSkin( math.random( 0, entity:SkinCount() - 1 ) )
+		entity:SetSkin( math.random( randomSkinStart, randomSkinEnd ) )
 	end
 
-	-- Randomize body groups
+	-- Randomize bodygroups within the range, 0 seems to be base mesh, so we skip that by adding 1 to the start and end values above
+	randomBodygroupEnd = ( entity:GetNumBodyGroups() > randomBodygroupEnd ) && randomBodygroupEnd || entity:GetNumBodyGroups()
+
 	if ( randomBodygroup ) then
-		for i = 0, entity:GetNumBodyGroups() do
-			if ( i <= randomSkip ) then continue end
+		for i = randomBodygroupStart, randomBodygroupEnd do
 			entity:SetBodygroup( i, math.random( 0, entity:GetBodygroupCount( i ) - 1 ) )
 		end
 	end
+
+	-- self:GetOwner():Say( "randomBodygroupStart " .. randomBodygroupStart )
+	-- self:GetOwner():Say( "randomBodygroupEnd " .. randomBodygroupEnd )
 
 	-- Randomize color
 	if ( randomColor ) then
@@ -1086,7 +1101,7 @@ local function MakeCheckbox( panel, titleString, convar, leftSpacing )
 	return contentHolder
 end
 
-local function MakeNumberWang( panel, titleString, convar, min, max, leftSpacing )
+local function MakeNumberWang( panel, titleString, tooltipString, convar, min, max, leftSpacing )
 	local dList = vgui.Create( "DPanelList" )
 	dList:Dock( TOP )
 	dList:DockPadding( leftSpacing, 0, 0, 0 )
@@ -1105,11 +1120,113 @@ local function MakeNumberWang( panel, titleString, convar, min, max, leftSpacing
 	label:SetDark( true )
 	label:DockMargin( 50, 0, 0, 0 )
 	label:Dock( TOP )
+	label:SetTooltip( tooltipString )
+	label:SetMouseInputEnabled( true )
+
+	function label:DoClick()
+		GetConVar( convar ):Revert()
+	end
+	function label:OnCursorEntered()
+		label:SetColor( Color( 200, 100, 0 ) )
+	end
+	function label:OnCursorExited()
+		label:SetColor( Color( 50, 50, 50 ) )
+	end
 
 	-- Callback to update wangs when preset changes
 	cvars.AddChangeCallback( convar, function( convarName, valueOld, valueNew )
 		numbox:SetValue( cvars.Number( convarName ) )
 	end, convar .. "_callback" )
+
+	return dList
+end
+
+local function MakeRangeWang( panel, titleString, tooltipString, convar, convar2, min, max, leftSpacing )
+	local dList = vgui.Create( "DPanelList" )
+	dList:Dock( TOP )
+	dList:DockPadding( leftSpacing, 0, 0, 0 )
+	panel:AddItem( dList )
+
+	local WangHolder = vgui.Create( "DPanelList", dList )
+	WangHolder:Dock( TOP )
+	WangHolder:DockPadding( leftSpacing, 0, 0, 0 )
+	WangHolder:SetSize( 100, 20 )
+	WangHolder:SetPos( leftSpacing, 0 )
+	WangHolder:Dock( NODOCK )
+
+	local numboxStart = vgui.Create( "DNumberWang", WangHolder )
+	numboxStart:SetSize( 40, 20 )
+	numboxStart:SetPos( 0, 0 )
+	numboxStart:SetMinMax( min, max )
+	numboxStart:Dock( NODOCK )
+	numboxStart:SetConVar( convar )
+	numboxStart:SetValue( cvars.Number( convar ) )
+
+	local labelTo = vgui.Create( "DLabel", WangHolder )
+	labelTo:SetText( "#tool.rat.rangeTo" )
+	labelTo:SetDark( true )
+	labelTo:SetSize( 20, 12 )
+	labelTo:SetPos( 46, 3 )
+	labelTo:Dock( NODOCK )
+
+	local numboxEnd = vgui.Create( "DNumberWang", WangHolder )
+	numboxEnd:SetSize( 40, 20 )
+	numboxEnd:SetPos( 60, 0 )
+	numboxEnd:SetMinMax( min, max )
+	numboxEnd:Dock( NODOCK )
+	numboxEnd:SetConVar( convar2 )
+	numboxEnd:SetValue( cvars.Number( convar2 ) )
+
+	local label = vgui.Create( "DLabel", dList )
+	label:SetText( titleString )
+	label:SetDark( true )
+	label:DockMargin( 110, 0, 0, 0 )
+	label:Dock( TOP )
+	label:SetTooltip( tooltipString )
+	label:SetMouseInputEnabled( true )
+
+	function label:DoClick()
+		GetConVar( convar ):Revert()
+		GetConVar( convar2 ):Revert()
+	end
+	function label:OnCursorEntered()
+		label:SetColor( Color( 200, 100, 0 ) )
+	end
+	function label:OnCursorExited()
+		label:SetColor( Color( 50, 50, 50 ) )
+	end
+
+	-- Callbacks to update wangs when preset changes
+	-- Also to make sure the start value will not be larger than the end or oposite, and never above max
+	cvars.AddChangeCallback( convar, function( convarName, valueOld, valueNew )
+		valueNew = tonumber( valueNew )
+		numboxStart:SetValue( valueNew )
+
+		-- Make sure numboxEnd is never lower than numboxStart
+		if ( valueNew > numboxEnd:GetValue() ) then
+			numboxEnd:SetValue( valueNew )
+		end
+
+		-- Make sure convar (and numboxStart) does not go over max value
+		if ( tonumber( valueNew ) > max ) then
+			GetConVar( convarName ):SetFloat( max )
+		end
+	end, convar .. "_callback" )
+
+	cvars.AddChangeCallback( convar2, function( convarName, valueOld, valueNew )
+		valueNew = tonumber( valueNew )
+		numboxEnd:SetValue( valueNew )
+
+		-- Make sure numboxStart is never higher than numboxEnd
+		if ( valueNew < numboxStart:GetValue() ) then
+			numboxStart:SetValue( valueNew )
+		end
+
+		-- Make sure convar (and numboxEnd) does not go over max value
+		if ( valueNew > max ) then
+			GetConVar( convarName ):SetFloat( max )
+		end
+	end, convar2 .. "_callback" )
 
 	return dList
 end
@@ -1260,13 +1377,16 @@ function TOOL.BuildCPanel( cpanel )
 	MakeCheckbox( cpanel, "#tool.rat.noCollide", "rat_noCollide", 0 )
 	MakeCheckbox( cpanel, "#tool.rat.noShadow", "rat_noShadow", 0 )
 	MakeCheckbox( cpanel, "#tool.rat.randomColor", "rat_randomColor", 0 )
+
 	MakeCheckbox( cpanel, "#tool.rat.randomSkin", "rat_randomSkin", 0 )
+	MakeRangeWang( cpanel, "#tool.rat.randomSkinRange", nil, "rat_randomSkinStart", "rat_randomSkinEnd", 0, 100, 0 )
+
 	MakeCheckbox( cpanel, "#tool.rat.randomBodygroup", "rat_randomBodygroup", 0 )
+	MakeRangeWang( cpanel, "#tool.rat.randomBodygroupRange", nil, "rat_randomBodygroupStart", "rat_randomBodygroupEnd", 0, 100, 0 )
 
 	cpanel:ControlHelp( "" )
 
-	MakeNumberWang( cpanel, "#tool.rat.randomSkip", "rat_randomSkip", 0, 100, 0 )
-	MakeNumberWang( cpanel, "#tool.rat.spawnChance", "rat_spawnChance", 0, 100, 0 )
+	MakeNumberWang( cpanel, "#tool.rat.spawnChance", nil, "rat_spawnChance", 0, 100, 0 )
 
 	cpanel:ControlHelp( "" )
 
@@ -1368,13 +1488,13 @@ function TOOL.BuildCPanel( cpanel )
 
 
 	-- [[----------------------------------------------------------------]] -- Array visualization options
-	MakeNumberWang( cpanel, "#tool.rat.previewTraceAxisSizeDescription", "rat_previewTraceAxisSize", 1, 100, 0 )
-	MakeNumberWang( cpanel, "#tool.rat.sphereRadius", "rat_sphereRadius", 0, 9999, 0 )
+	MakeNumberWang( cpanel, "#tool.rat.previewTraceAxisSizeDescription", nil, "rat_previewTraceAxisSize", 1, 100, 0 )
+	MakeNumberWang( cpanel, "#tool.rat.sphereRadius", nil, "rat_sphereRadius", 0, 9999, 0 )
 
 	MakeCheckbox( cpanel, "#tool.rat.ignoreSurfaceAngle", "rat_ignoreSurfaceAngle", 0 )
 	local checkboxFacePlayer = MakeCheckbox( cpanel, "#tool.rat.facePlayerZ", "rat_facePlayerZ", 10 )
 	MakeCheckbox( cpanel, "#tool.rat.localGroundPlane", "rat_localGroundPlane", 0 )
-	MakeNumberWang( cpanel, "#tool.rat.pushAwayFromSurface", "rat_pushAwayFromSurface", -9999, 9999, 0 )
+	MakeNumberWang( cpanel, "#tool.rat.pushAwayFromSurface", nil, "rat_pushAwayFromSurface", -9999, 9999, 0 )
 
 	local label = vgui.Create( "DLabel" )
 	label:SetText( "#tool.rat.arrayType" )
@@ -1405,7 +1525,7 @@ function TOOL.BuildCPanel( cpanel )
 
 
 	MakeCheckbox( cpanel, "#tool.rat.previewPointAxisDescription", "rat_previewPointAxis", 0 )
-	MakeNumberWang( cpanel, "#tool.rat.previewPointAxisSizeDescription", "rat_previewPointAxisSize", 1, 100, 0 )
+	MakeNumberWang( cpanel, "#tool.rat.previewPointAxisSizeDescription", nil, "rat_previewPointAxisSize", 1, 100, 0 )
 	MakeCheckbox( cpanel, "#tool.rat.previewArrayBoundsDescription", "rat_previewArrayBounds", 0 )
 
 
@@ -1450,9 +1570,9 @@ function TOOL.BuildCPanel( cpanel )
 	end
 	cpanel:AddItem( dListNumber )
 
-	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.xAxis" ), "rat_xAmount", 1, 999, 10 )
-	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.yAxis" ), "rat_yAmount", 1, 999, 10 )
-	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.zAxis" ), "rat_zAmount", 1, 999, 10 )
+	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.xAxis" ), nil, "rat_xAmount", 1, 999, 10 )
+	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.yAxis" ), nil, "rat_yAmount", 1, 999, 10 )
+	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.zAxis" ), nil, "rat_zAmount", 1, 999, 10 )
 
 	-- Only reliable way I found to update this value was a bunch of callbacks
 	-- If using GetConVar within DNumberWang:OnValueChanged it would return the previous value
