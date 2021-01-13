@@ -864,9 +864,16 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 		local previewPointAxisSize = playerTool:GetClientNumber( "previewPointAxisSize" )
 		local previewArrayBounds = tobool( playerTool:GetClientNumber( "previewArrayBounds" ) )
 
+		local transformTable = {}
+
+		-- Calculate array if either point previews or array previews are active
+		-- It's a bit wastefull if only bounds are on but much easier than having to keep track of when bounds should be updated otherwise
+		if ( previewPointAxis || previewArrayBounds ) then
+			transformTable = playerTool:CreateLocalTransformArray()
+		end
+
 		-- Render per position visualization
 		if ( previewPointAxis ) then
-			local transformTable = playerTool:CreateLocalTransformArray()
 			if ( next( transformTable ) == nil ) then return end
 
 			-- playerTool:RandomizeTransformArrayPosition( transformTable ) -- For easy debugging of random positions
