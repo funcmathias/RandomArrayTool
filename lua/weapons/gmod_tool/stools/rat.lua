@@ -434,7 +434,7 @@ function TOOL:ModifyTransformArray( trace, transformArray ) -- Calculates the po
 	local correctedHitAngle = trace.HitNormal:Angle()
 	correctedHitAngle.X = correctedHitAngle.X + 90
 	correctedHitAngle:Normalize()
-	local tempAngle = correctedHitAngle
+	local tempAngle = correctedHitAngle + Angle()
 
 	-- Push the array away from the hit surface in the angle of the surface
 	local surfacePushOffset = correctedHitAngle:Up() * pushAwayFromSurface
@@ -879,9 +879,9 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 
 			for i, transform in pairs( transformTable ) do
 				local pointPosition = trace.HitPos + transform
-				render.DrawLine( pointPosition, pointPosition + pointXAxisLine, Color( 255, 0, 0, 255 ), false ) -- Red
-				render.DrawLine( pointPosition, pointPosition + pointYAxisLine, Color( 0, 255, 0, 255 ), false ) -- Green
-				render.DrawLine( pointPosition, pointPosition + pointZAxisLine, Color( 0, 0, 255, 255 ), false ) -- Blue
+				render.DrawLine( pointPosition, pointPosition + pointXAxisLine, Color( 255, 0, 0, 255 ), true ) -- Red
+				render.DrawLine( pointPosition, pointPosition + pointYAxisLine, Color( 0, 255, 0, 255 ), true ) -- Green
+				render.DrawLine( pointPosition, pointPosition + pointZAxisLine, Color( 0, 0, 255, 255 ), true ) -- Blue
 			end
 		end
 
@@ -889,7 +889,8 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 		local previewTraceAxisSize = playerTool:GetClientNumber( "previewTraceAxisSize" )
 		local previewTraceAxisDistanceSize = previewTraceAxisSize * ( traceHitDistance / 400 )
 		local correctedHitAngle = trace.HitNormal:Angle()
-		correctedHitAngle.x = correctedHitAngle.x + 90
+		correctedHitAngle.X = correctedHitAngle.X + 90
+		correctedHitAngle:Normalize()
 		local thicc = 0.3 * ( traceHitDistance / 400 )
 		render.DrawWireframeBox( trace.HitPos, correctedHitAngle, Vector( 0, 0, 0 ), Vector( previewTraceAxisDistanceSize, thicc, thicc ), Color( 255, 0, 0, 255 ) , false )
 		render.DrawWireframeBox( trace.HitPos, correctedHitAngle, Vector( 0, 0, 0 ), Vector( thicc, previewTraceAxisDistanceSize, thicc ), Color( 0, 255, 0, 255 ) , false )
@@ -897,11 +898,30 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 
 		-- Render single box that envelops the whole array
 		if ( previewArrayBounds ) then
+			local ignoreSurfaceAngle = tobool( playerTool:GetClientNumber( "ignoreSurfaceAngle" ) )
+			local facePlayerZ = tobool( playerTool:GetClientNumber( "facePlayerZ" ) )
+			local pushAwayFromSurface = playerTool:GetClientNumber( "pushAwayFromSurface" )
+
+			local tempAngle = correctedHitAngle + Angle()
+
+			-- Push the array away from the hit surface in the angle of the surface
+			local surfacePushOffset = correctedHitAngle:Up() * pushAwayFromSurface
+
+			-- Ignore surface angle and set it do a default world angle, or face player on z axis
+			if ( ignoreSurfaceAngle ) then
+				if ( facePlayerZ ) then
+					tempAngle = Angle( 0, playerTool:GetOwner():EyeAngles().Y, 0 )
+				else
+					tempAngle = Angle()
+				end
+			end
+
 			local arrayPivot = Vector( playerTool:GetClientNumber( "xArrayPivot" ), playerTool:GetClientNumber( "yArrayPivot" ), playerTool:GetClientNumber( "zArrayPivot" ) )
 			local boundEdgeSpacing = Vector( -10, -10, -10 )
 			local boundOffset = maxArrayPosition * arrayPivot
-			boundOffset:Rotate( correctedHitAngle )
-			render.DrawWireframeBox( trace.HitPos - boundOffset, correctedHitAngle, boundEdgeSpacing, maxArrayPosition - boundEdgeSpacing, Color( 0, 255, 255, 127 ), false )
+			boundOffset:Rotate( tempAngle )
+			boundOffset:Sub( surfacePushOffset )
+			render.DrawWireframeBox( trace.HitPos - boundOffset, tempAngle, boundEdgeSpacing, maxArrayPosition - boundEdgeSpacing, Color( 0, 255, 255, 127 ), false )
 		end
 
 		-- Render sphere for sphere volume
