@@ -835,6 +835,15 @@ function TOOL:Holster()
 	end
 end
 
+gameevent.Listen( "player_connect_client" )
+hook.Add( "player_connect_client", "rat_player_connect", function( data )
+	local sid = data.networkid	-- Same as Player:SteamID()
+
+	-- The table is stored server side, so we make sure to reset it every time someone joins to match the local empty model list
+	-- Also fixes an error that could happen the first time someone joins, if they try to click before adding any models to the list
+	modelPathTable[sid] = {}
+end )
+
 ----------------------------------------------------
 ----------------------------------------------------
 ----------------------------------------------------
