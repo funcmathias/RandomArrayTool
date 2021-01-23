@@ -12,30 +12,31 @@ local maxArrayPosition = Vector()
 local modelPathTable = {}
 
 -- Various tool setting ConVars
+TOOL.ClientConVar["sphereRadius"] = "0"
+TOOL.ClientConVar["previewTraceAxisSize"] = "10"
+
 TOOL.ClientConVar["spawnFrozen"] = "1"
 TOOL.ClientConVar["freezeRootBoneOnly"] = "1"
 TOOL.ClientConVar["randomRagdollPose"] = "1"
 TOOL.ClientConVar["noCollide"] = "0"
 TOOL.ClientConVar["noShadow"] = "0"
-TOOL.ClientConVar["randomColor"] = "0"
+
 TOOL.ClientConVar["randomSkin"] = "1"
 TOOL.ClientConVar["randomSkinStart"] = "0"
 TOOL.ClientConVar["randomSkinEnd"] = "100"
 TOOL.ClientConVar["randomBodygroup"] = "1"
 TOOL.ClientConVar["randomBodygroupStart"] = "0"
 TOOL.ClientConVar["randomBodygroupEnd"] = "100"
-
-TOOL.ClientConVar["spawnChance"] = "100"
+TOOL.ClientConVar["randomColor"] = "0"
 
 TOOL.ClientConVar["mdlName"] = ""
 
-TOOL.ClientConVar["previewTraceAxisSize"] = "10"
-TOOL.ClientConVar["sphereRadius"] = "0"
 TOOL.ClientConVar["ignoreSurfaceAngle"] = "0"
 TOOL.ClientConVar["facePlayerZ"] = "0"
 TOOL.ClientConVar["localGroundPlane"] = "0"
 TOOL.ClientConVar["pushAwayFromSurface"] = "0"
 
+TOOL.ClientConVar["spawnChance"] = "100"
 
 
 -- Array ConVars
@@ -49,6 +50,7 @@ TOOL.ClientConVar["arrayCount"] = "1"
 TOOL.ClientConVar["pointTransformExpanded"] = "1"
 TOOL.ClientConVar["arrayTransformsExpanded"] = "0"
 TOOL.ClientConVar["randomPointTransformsExpanded"] = "0"
+
 
 -- X axis ConVars
 TOOL.ClientConVar["xAmount"] = "3"
@@ -115,20 +117,21 @@ if CLIENT then
 	language.Add( "tool.rat.reload", "Remove prop under cursor, or all props within the editing sphere if it's bigger than 0." )
 	language.Add( "tool.rat.desc", "This tool lets you spawn props in a randomized array, or randomize already spawned props in various ways." )
 
+	language.Add( "tool.rat.sphereRadius", "Editing radius" )
+	language.Add( "tool.rat.previewTraceAxisSizeDescription", "Cursor preview size" )
+
 	language.Add( "tool.rat.spawnFrozen", "Spawn frozen" )
 	language.Add( "tool.rat.freezeRootBoneOnly", "Freeze only root bone of ragdolls" )
 	language.Add( "tool.rat.randomRagdollPose", "Random animation pose for ragdolls" )
 	language.Add( "tool.rat.noCollide", "No collide (world only)" )
 	language.Add( "tool.rat.noShadow", "No dynamic shadow" )
-	language.Add( "tool.rat.randomColor", "Apply random colors" )
 
 	language.Add( "tool.rat.randomSkin", "Randomize skins" )
 	language.Add( "tool.rat.randomSkinRange", "Skin range" )
 	language.Add( "tool.rat.randomBodygroup", "Randomize bodygroups" )
 	language.Add( "tool.rat.randomBodygroupRange", "Bodygroup range" )
 	language.Add( "tool.rat.rangeTo", "to" )
-
-	language.Add( "tool.rat.spawnChance", "Spawn chance (0 - 100)" )
+	language.Add( "tool.rat.randomColor", "Apply random colors" )
 
 	language.Add( "tool.rat.listHelpTitle", "Prop list help - Click for info" )
 	language.Add( "tool.rat.listHelp1", "With the panel below you can keep track of the props you want to randomly spawn." )
@@ -139,18 +142,19 @@ if CLIENT then
 
 	language.Add( "tool.rat.mdlAdd", "Add prop by path" )
 	language.Add( "tool.rat.mdlAddButton", "Add to list from path" )
-	language.Add( "tool.rat.mdlClearButton", "Clear prop list" )
-
-	language.Add( "tool.rat.probabilityResetButton", "Reset prop probability" )
 	language.Add( "tool.rat.propProbabilityTooltip", "Prop spawn probability" )
-
-	language.Add( "tool.rat.previewTraceAxisSizeDescription", "Hit position preview size" )
-	language.Add( "tool.rat.sphereRadius", "Editing sphere radius" )
+	language.Add( "tool.rat.probabilityResetButton", "Reset prop probability" )
+	language.Add( "tool.rat.mdlClearButton", "Clear prop list" )
 
 	language.Add( "tool.rat.ignoreSurfaceAngle", "Ignore surface angle" )
 	language.Add( "tool.rat.facePlayerZ", "Face player on Z axis" )
 	language.Add( "tool.rat.localGroundPlane", "Local player ground plane" )
-	language.Add( "tool.rat.pushAwayFromSurface", "Push array away from surface" )
+	language.Add( "tool.rat.pushAwayFromSurface", "Push array from surface" )
+
+	language.Add( "tool.rat.numOfProps", "Number of props: " )
+	language.Add( "tool.rat.numberIn", "Number in " )
+
+	language.Add( "tool.rat.spawnChance", "% Spawn chance" )
 
 	language.Add( "tool.rat.arrayType", "Array type" )
 	language.Add( "tool.rat.arrayTypeFull", "Full" )
@@ -164,9 +168,6 @@ if CLIENT then
 	language.Add( "tool.rat.previewPointAxisDescription", "Show array point previews" )
 	language.Add( "tool.rat.previewPointAxisSizeDescription", "Array point preview size" )
 	language.Add( "tool.rat.previewArrayBoundsDescription", "Show array bounds preview" )
-
-	language.Add( "tool.rat.numOfProps", "Number of props: " )
-	language.Add( "tool.rat.numberIn", "Number in " )
 
 	language.Add( "tool.rat.pointTransforms", "Array point transforms" )
 	language.Add( "tool.rat.pointSpacing", "Spacing" )
@@ -1407,12 +1408,18 @@ function TOOL.BuildCPanel( cpanel )
 
 	cpanel:AddControl( "ComboBox", { MenuButton = 1, Folder = "rat", Options = { [ "#preset.default" ] = ConVarsDefault }, CVars = table.GetKeys( ConVarsDefault ) } )
 
+	MakeNumberWang( cpanel, "#tool.rat.sphereRadius", nil, "rat_sphereRadius", 0, 9999, 0 )
+	MakeNumberWang( cpanel, "#tool.rat.previewTraceAxisSizeDescription", nil, "rat_previewTraceAxisSize", 1, 100, 0 )
+
+	cpanel:ControlHelp( "" )
+
 	MakeCheckbox( cpanel, "#tool.rat.spawnFrozen", "rat_spawnFrozen", 0 )
 	local checkboxRootBoneOnly = MakeCheckbox( cpanel, "#tool.rat.freezeRootBoneOnly", "rat_freezeRootBoneOnly", 10 )
 	local checkboxRandomRagdollPose = MakeCheckbox( cpanel, "#tool.rat.randomRagdollPose", "rat_randomRagdollPose", 10 )
 	MakeCheckbox( cpanel, "#tool.rat.noCollide", "rat_noCollide", 0 )
 	MakeCheckbox( cpanel, "#tool.rat.noShadow", "rat_noShadow", 0 )
-	MakeCheckbox( cpanel, "#tool.rat.randomColor", "rat_randomColor", 0 )
+
+	cpanel:ControlHelp( "" )
 
 	MakeCheckbox( cpanel, "#tool.rat.randomSkin", "rat_randomSkin", 0 )
 	MakeRangeWang( cpanel, "#tool.rat.randomSkinRange", nil, "rat_randomSkinStart", "rat_randomSkinEnd", 0, 100, 0 )
@@ -1420,14 +1427,12 @@ function TOOL.BuildCPanel( cpanel )
 	MakeCheckbox( cpanel, "#tool.rat.randomBodygroup", "rat_randomBodygroup", 0 )
 	MakeRangeWang( cpanel, "#tool.rat.randomBodygroupRange", nil, "rat_randomBodygroupStart", "rat_randomBodygroupEnd", 0, 100, 0 )
 
-	cpanel:ControlHelp( "" )
-
-	MakeNumberWang( cpanel, "#tool.rat.spawnChance", nil, "rat_spawnChance", 0, 100, 0 )
+	MakeCheckbox( cpanel, "#tool.rat.randomColor", "rat_randomColor", 0 )
 
 	cpanel:ControlHelp( "" )
 
 
-	-- [[----------------------------------------------------------------]] -- Prop List Description
+	-- [[----------------------------------------------------------------]] -- PROP LIST DESCRIPTION
 	local collapsible = MakeCollapsible( cpanel, "#tool.rat.listHelpTitle" )
 
 	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp1" )
@@ -1437,7 +1442,7 @@ function TOOL.BuildCPanel( cpanel )
 	MakeText( collapsible, Color( 50, 50, 50 ), "#tool.rat.listHelp5" )
 
 
-	-- [[----------------------------------------------------------------]] -- Prop Grid List
+	-- [[----------------------------------------------------------------]] -- PROP GRID LIST
 	cpanel:TextEntry( "#tool.rat.mdlAdd", "rat_mdlName" )
 
 	-- Create the Scroll panel
@@ -1523,49 +1528,14 @@ function TOOL.BuildCPanel( cpanel )
 
 
 
-	-- [[----------------------------------------------------------------]] -- Array visualization options
-	MakeNumberWang( cpanel, "#tool.rat.previewTraceAxisSizeDescription", nil, "rat_previewTraceAxisSize", 1, 100, 0 )
-	MakeNumberWang( cpanel, "#tool.rat.sphereRadius", nil, "rat_sphereRadius", 0, 9999, 0 )
-
+	-- [[----------------------------------------------------------------]] -- VARIOUS
 	MakeCheckbox( cpanel, "#tool.rat.ignoreSurfaceAngle", "rat_ignoreSurfaceAngle", 0 )
 	local checkboxFacePlayer = MakeCheckbox( cpanel, "#tool.rat.facePlayerZ", "rat_facePlayerZ", 10 )
 	MakeCheckbox( cpanel, "#tool.rat.localGroundPlane", "rat_localGroundPlane", 0 )
 	MakeNumberWang( cpanel, "#tool.rat.pushAwayFromSurface", nil, "rat_pushAwayFromSurface", -9999, 9999, 0 )
 
-	local label = vgui.Create( "DLabel" )
-	label:SetText( "#tool.rat.arrayType" )
-	label:SetDark( true )
-	label:Dock( TOP )
-	cpanel:AddItem( label )
 
-	local dList = vgui.Create( "DPanelList" )
-	dList:Dock( TOP )
-	dList:DockMargin( 0, -10, 0, 0 )
-	cpanel:AddItem( dList )
-
-	local comboBox = vgui.Create( "DComboBox", dList )
-	comboBox:SetSize( 200, 20 )
-	comboBox:SetSortItems( false )
-	comboBox:Dock( NODOCK )
-	comboBox:AddChoice( "#tool.rat.arrayTypeFull" )
-	comboBox:AddChoice( "#tool.rat.arrayTypeHollow" )
-	comboBox:AddChoice( "#tool.rat.arrayTypeOutline" )
-	comboBox:AddChoice( "#tool.rat.arrayTypeCheckered" )
-	comboBox:AddChoice( "#tool.rat.arrayTypeCheckeredInv" )
-	comboBox:AddChoice( "#tool.rat.arrayType2DCheckered" )
-	comboBox:AddChoice( "#tool.rat.arrayType2DCheckeredInv" )
-	comboBox:ChooseOptionID( cvars.Number( "rat_arrayType" ) )
-	comboBox.OnSelect = function( self, index, value )
-		GetConVar( "rat_arrayType" ):SetInt( index )
-	end
-
-
-	MakeCheckbox( cpanel, "#tool.rat.previewPointAxisDescription", "rat_previewPointAxis", 0 )
-	MakeNumberWang( cpanel, "#tool.rat.previewPointAxisSizeDescription", nil, "rat_previewPointAxisSize", 1, 100, 0 )
-	MakeCheckbox( cpanel, "#tool.rat.previewArrayBoundsDescription", "rat_previewArrayBounds", 0 )
-
-
-	-- [[----------------------------------------------------------------]] -- Prop Counter
+	-- [[----------------------------------------------------------------]] -- ARRAY AMOUNT
 	local dListCountHolder = vgui.Create( "DPanelList" )
 	dListCountHolder:SetAutoSize( true )
 	dListCountHolder:SetTall( 20 )
@@ -1629,6 +1599,43 @@ function TOOL.BuildCPanel( cpanel )
 	cvars.AddChangeCallback( "rat_arrayCount", function( convarName, valueOld, valueNew )
 		ChangeAndColorPropCount( NumberOfPropsText, tonumber( valueNew ) )
 	end, "rat_arrayCount_callback" )
+
+
+	MakeNumberWang( cpanel, "#tool.rat.spawnChance", nil, "rat_spawnChance", 0, 100, 0 )
+
+
+	-- [[----------------------------------------------------------------]] -- ARRAY TYPE AND VISUALIZATION SETTINGS
+	local label = vgui.Create( "DLabel" )
+	label:SetText( "#tool.rat.arrayType" )
+	label:SetDark( true )
+	label:Dock( TOP )
+	cpanel:AddItem( label )
+
+	local dList = vgui.Create( "DPanelList" )
+	dList:Dock( TOP )
+	dList:DockMargin( 0, -10, 0, 0 )
+	cpanel:AddItem( dList )
+
+	local comboBox = vgui.Create( "DComboBox", dList )
+	comboBox:SetSize( 200, 20 )
+	comboBox:SetSortItems( false )
+	comboBox:Dock( NODOCK )
+	comboBox:AddChoice( "#tool.rat.arrayTypeFull" )
+	comboBox:AddChoice( "#tool.rat.arrayTypeHollow" )
+	comboBox:AddChoice( "#tool.rat.arrayTypeOutline" )
+	comboBox:AddChoice( "#tool.rat.arrayTypeCheckered" )
+	comboBox:AddChoice( "#tool.rat.arrayTypeCheckeredInv" )
+	comboBox:AddChoice( "#tool.rat.arrayType2DCheckered" )
+	comboBox:AddChoice( "#tool.rat.arrayType2DCheckeredInv" )
+	comboBox:ChooseOptionID( cvars.Number( "rat_arrayType" ) )
+	comboBox.OnSelect = function( self, index, value )
+		GetConVar( "rat_arrayType" ):SetInt( index )
+	end
+
+
+	MakeCheckbox( cpanel, "#tool.rat.previewPointAxisDescription", "rat_previewPointAxis", 0 )
+	MakeNumberWang( cpanel, "#tool.rat.previewPointAxisSizeDescription", nil, "rat_previewPointAxisSize", 1, 100, 0 )
+	MakeCheckbox( cpanel, "#tool.rat.previewArrayBoundsDescription", "rat_previewArrayBounds", 0 )
 
 
 	-- [[----------------------------------------------------------------]] -- SPAWN TRANSFORMS
