@@ -35,6 +35,7 @@ TOOL.ClientConVar["ignoreSurfaceAngle"] = "0"
 TOOL.ClientConVar["facePlayerZ"] = "0"
 TOOL.ClientConVar["localGroundPlane"] = "0"
 TOOL.ClientConVar["pushAwayFromSurface"] = "0"
+TOOL.ClientConVar["usePropOrigin"] = "0"
 
 TOOL.ClientConVar["spawnChance"] = "100"
 
@@ -139,7 +140,7 @@ if CLIENT then
 	language.Add( "tool.rat.listHelpTitle", "Prop list help - Click for info" )
 	language.Add( "tool.rat.listHelp1", "With the panel below you can keep track of the props you want to randomly spawn." )
 	language.Add( "tool.rat.listHelp2", "- You can drag and drop any prop from the default spawnlist into the grey panel below to add them. You can select and drag multiple at once!" )
-	language.Add( "tool.rat.listHelp3", "- You can also add props by using a path, if it's a path to a folder it will add every model in the folder as a prop. Be careful with folders containing a large amount of models." )
+	language.Add( "tool.rat.listHelp3", "- You can also add props by using a path, if it's a path to a folder it will add every model in the folder as a prop." )
 	language.Add( "tool.rat.listHelp4", "- Right click any icon to remove it from the list." )
 	language.Add( "tool.rat.listHelp5", "- Tip: There is no option for saving your prop list but you can create a custom spawnlist to keep all the desired props in one place for easy adding to this list." )
 
@@ -153,6 +154,7 @@ if CLIENT then
 	language.Add( "tool.rat.facePlayerZ", "Face player on Z axis" )
 	language.Add( "tool.rat.localGroundPlane", "Local player ground plane" )
 	language.Add( "tool.rat.pushAwayFromSurface", "Push array from surface" )
+	language.Add( "tool.rat.usePropOrigin", "Use prop origins for position" )
 
 	language.Add( "tool.rat.numOfProps", "Number of props: " )
 	language.Add( "tool.rat.numberIn", "Number in " )
@@ -590,12 +592,14 @@ function TOOL:SpawnPropTable( player, trace, sid )
 	snappedHitPosition.Y = gridY >= 1 && math.Round( trace.HitPos.Y / gridY) * gridY || trace.HitPos.Y
 	snappedHitPosition.Z = gridZ >= 1 && math.Round( trace.HitPos.Z / gridZ) * gridZ || trace.HitPos.Z
 
-	local spawnChance = self:GetClientNumber( "spawnChance" )
 	local spawnFrozen = tobool( self:GetClientNumber( "spawnFrozen" ) )
 	local freezeRootBoneOnly = tobool( self:GetClientNumber( "freezeRootBoneOnly" ) )
 	local randomRagdollPose = tobool( self:GetClientNumber( "randomRagdollPose" ) )
 	local noCollide = tobool( self:GetClientNumber( "noCollide" ) )
 	local noShadow = tobool( self:GetClientNumber( "noShadow" ) )
+
+	local usePropOrigin = tobool( self:GetClientNumber( "usePropOrigin" ) )
+	local spawnChance = self:GetClientNumber( "spawnChance" )
 
 	undo.Create( "rat_array_prop" )
 	undo.SetCustomUndoText( "#tool.rat.undo" )
@@ -618,7 +622,11 @@ function TOOL:SpawnPropTable( player, trace, sid )
 
 		local entity = ents.Create( entityType )
 		entity:SetModel( modelPath )
-		entity:SetPos( snappedHitPosition + transform )
+
+		-- If not using prop origin for position then calculate offset based on the bottom of the prop bounds (doesn't work well on most ragdolls so skip them)
+		local boundsPositionOffset = ( usePropOrigin || entityType == "prop_ragdoll" ) && Vector() || elementAngle:Up() * math.abs( entity:OBBMins().Z )
+		entity:SetPos( snappedHitPosition + transform + boundsPositionOffset )
+
 		entity:SetAngles( elementAngle )
 		entity:Spawn()
 		entity:DrawShadow( !noShadow )
@@ -630,7 +638,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 		if ( randomRagdollPose && spawnFrozen && !freezeRootBoneOnly ) then
 			animationEntity = ents.Create( "prop_dynamic" )
 			animationEntity:SetModel( modelPath )
-			animationEntity:SetPos( snappedHitPosition + transform )
+			animationEntity:SetPos( snappedHitPosition + transform + boundsPositionOffset )
 			animationEntity:SetAngles( elementAngle )
 			animationEntity:SetNoDraw( true )
 			animationEntity:Spawn()
@@ -1566,6 +1574,7 @@ function TOOL.BuildCPanel( cpanel )
 	local checkboxFacePlayer = MakeCheckbox( cpanel, "#tool.rat.facePlayerZ", "rat_facePlayerZ", 10 )
 	MakeCheckbox( cpanel, "#tool.rat.localGroundPlane", "rat_localGroundPlane", 0 )
 	MakeNumberWang( cpanel, "#tool.rat.pushAwayFromSurface", nil, "rat_pushAwayFromSurface", -9999, 9999, 0 )
+	MakeCheckbox( cpanel, "#tool.rat.usePropOrigin", "rat_usePropOrigin", 0 )
 
 
 	-- [[----------------------------------------------------------------]] -- ARRAY AMOUNT
