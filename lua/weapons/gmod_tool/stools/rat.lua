@@ -62,6 +62,7 @@ TOOL.ClientConVar["xGapSpacing"] = "0"
 TOOL.ClientConVar["xGapStart"] = "1"
 
 TOOL.ClientConVar["xArrayPivot"] = "0.50"
+TOOL.ClientConVar["xArraySnap"] = "0"
 TOOL.ClientConVar["xArrayRotation"] = "0"
 
 TOOL.ClientConVar["xOffsetRandom"] = "0"
@@ -79,6 +80,7 @@ TOOL.ClientConVar["yGapSpacing"] = "0"
 TOOL.ClientConVar["yGapStart"] = "1"
 
 TOOL.ClientConVar["yArrayPivot"] = "0.50"
+TOOL.ClientConVar["yArraySnap"] = "0"
 TOOL.ClientConVar["yArrayRotation"] = "0"
 
 TOOL.ClientConVar["yOffsetRandom"] = "0"
@@ -96,6 +98,7 @@ TOOL.ClientConVar["zGapSpacing"] = "0"
 TOOL.ClientConVar["zGapStart"] = "1"
 
 TOOL.ClientConVar["zArrayPivot"] = "0.00"
+TOOL.ClientConVar["zArraySnap"] = "0"
 TOOL.ClientConVar["zArrayRotation"] = "0"
 
 TOOL.ClientConVar["zOffsetRandom"] = "0"
@@ -182,6 +185,8 @@ if CLIENT then
 	language.Add( "tool.rat.arrayTransforms", "Array origin transforms" )
 	language.Add( "tool.rat.arrayPivot", "Pivot" )
 	language.Add( "tool.rat.arrayPivotDescription", "Pivot of the array. 0.5 in all axes will center it to cursor." .. string.char(10) .. "Click this text to reset values!" )
+	language.Add( "tool.rat.arraySnap", "Snapping" )
+	language.Add( "tool.rat.arraySnapDescription", "Snapping of the array origin every X world units." .. string.char(10) .. "Click this text to reset values!" )
 	language.Add( "tool.rat.arrayRotation", "Rotation" )
 	language.Add( "tool.rat.arrayRotationDescription", "Rotation of the array origin." .. string.char(10) .. "Click this text to reset values!" )
 
@@ -575,6 +580,16 @@ function TOOL:SpawnPropTable( player, trace, sid )
 	local elementAngleStatic = self:ModifyTransformArray( trace, transformTable )
 	local elementAngle = Angle()
 
+	-- Array position snapping
+	local gridX = self:GetClientNumber( "xArraySnap" )
+	local gridY = self:GetClientNumber( "yArraySnap" )
+	local gridZ = self:GetClientNumber( "zArraySnap" )
+	local snappedHitPosition = Vector()
+	-- Round the position if snapping for that axis is set to 1 or higher
+	snappedHitPosition.X = gridX >= 1 && math.Round( trace.HitPos.X / gridX) * gridX || trace.HitPos.X
+	snappedHitPosition.Y = gridY >= 1 && math.Round( trace.HitPos.Y / gridY) * gridY || trace.HitPos.Y
+	snappedHitPosition.Z = gridZ >= 1 && math.Round( trace.HitPos.Z / gridZ) * gridZ || trace.HitPos.Z
+
 	local spawnChance = self:GetClientNumber( "spawnChance" )
 	local spawnFrozen = tobool( self:GetClientNumber( "spawnFrozen" ) )
 	local freezeRootBoneOnly = tobool( self:GetClientNumber( "freezeRootBoneOnly" ) )
@@ -603,7 +618,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 
 		local entity = ents.Create( entityType )
 		entity:SetModel( modelPath )
-		entity:SetPos( trace.HitPos + transform )
+		entity:SetPos( snappedHitPosition + transform )
 		entity:SetAngles( elementAngle )
 		entity:Spawn()
 		entity:DrawShadow( !noShadow )
@@ -615,7 +630,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 		if ( randomRagdollPose && spawnFrozen && !freezeRootBoneOnly ) then
 			animationEntity = ents.Create( "prop_dynamic" )
 			animationEntity:SetModel( modelPath )
-			animationEntity:SetPos( trace.HitPos + transform )
+			animationEntity:SetPos( snappedHitPosition + transform )
 			animationEntity:SetAngles( elementAngle )
 			animationEntity:SetNoDraw( true )
 			animationEntity:Spawn()
@@ -869,6 +884,16 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 		-- Check if we should use normal or plane trace, modifies original trace data
 		playerTool:CheckPlaneTrace( trace )
 
+		-- Array position snapping
+		local gridX = playerTool:GetClientNumber( "xArraySnap" )
+		local gridY = playerTool:GetClientNumber( "yArraySnap" )
+		local gridZ = playerTool:GetClientNumber( "zArraySnap" )
+		local snappedHitPosition = Vector()
+		-- Round the position if snapping for that axis is set to 1 or higher
+		snappedHitPosition.X = gridX >= 1 && math.Round( trace.HitPos.X / gridX) * gridX || trace.HitPos.X
+		snappedHitPosition.Y = gridY >= 1 && math.Round( trace.HitPos.Y / gridY) * gridY || trace.HitPos.Y
+		snappedHitPosition.Z = gridZ >= 1 && math.Round( trace.HitPos.Z / gridZ) * gridZ || trace.HitPos.Z
+
 		local traceHitDistance = LocalPlayer():EyePos():Distance( trace.HitPos )
 		local previewPointAxis = tobool( playerTool:GetClientNumber( "previewPointAxis" ) )
 		local previewPointAxisSize = playerTool:GetClientNumber( "previewPointAxisSize" )
@@ -895,7 +920,7 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 			local pointZAxisLine = elementAngle:Up() * previewPointAxisSize
 
 			for i, transform in pairs( transformTable ) do
-				local pointPosition = trace.HitPos + transform
+				local pointPosition = snappedHitPosition + transform
 				render.DrawLine( pointPosition, pointPosition + pointXAxisLine, Color( 255, 0, 0, 255 ), true ) -- Red
 				render.DrawLine( pointPosition, pointPosition + pointYAxisLine, Color( 0, 255, 0, 255 ), true ) -- Green
 				render.DrawLine( pointPosition, pointPosition + pointZAxisLine, Color( 0, 0, 255, 255 ), true ) -- Blue
@@ -938,7 +963,7 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 			local boundOffset = maxArrayPosition * arrayPivot
 			boundOffset:Rotate( tempAngle )
 			boundOffset:Sub( surfacePushOffset )
-			render.DrawWireframeBox( trace.HitPos - boundOffset, tempAngle, boundEdgeSpacing, maxArrayPosition - boundEdgeSpacing, Color( 0, 255, 255, 127 ), false )
+			render.DrawWireframeBox( snappedHitPosition - boundOffset, tempAngle, boundEdgeSpacing, maxArrayPosition - boundEdgeSpacing, Color( 0, 255, 255, 127 ), false )
 		end
 
 		-- Render sphere for sphere volume
@@ -1580,27 +1605,6 @@ function TOOL.BuildCPanel( cpanel )
 	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.yAxis" ), nil, "rat_yAmount", 1, 999, 10 )
 	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.zAxis" ), nil, "rat_zAmount", 1, 999, 10 )
 
-	-- Only reliable way I found to update this value was a bunch of callbacks
-	-- If using GetConVar within DNumberWang:OnValueChanged it would return the previous value
-	cvars.AddChangeCallback( "rat_xAmount", function( convarName, valueOld, valueNew )
-		LocalPlayer():GetTool( "rat" ):CreateLocalTransformArray()
-	end, "rat_xAmount_callback_2" )
-	cvars.AddChangeCallback( "rat_yAmount", function( convarName, valueOld, valueNew )
-		LocalPlayer():GetTool( "rat" ):CreateLocalTransformArray()
-	end, "rat_yAmount_callback_2" )
-	cvars.AddChangeCallback( "rat_zAmount", function( convarName, valueOld, valueNew )
-		LocalPlayer():GetTool( "rat" ):CreateLocalTransformArray()
-	end, "rat_zAmount_callback_2" )
-	cvars.AddChangeCallback( "rat_arrayType", function( convarName, valueOld, valueNew )
-		LocalPlayer():GetTool( "rat" ):CreateLocalTransformArray()
-		-- Update dropdown when preset changes
-		comboBox:ChooseOptionID( tonumber( valueNew ) )
-	end, "rat_arrayType_callback" )
-	cvars.AddChangeCallback( "rat_arrayCount", function( convarName, valueOld, valueNew )
-		ChangeAndColorPropCount( NumberOfPropsText, tonumber( valueNew ) )
-	end, "rat_arrayCount_callback" )
-
-
 	MakeNumberWang( cpanel, "#tool.rat.spawnChance", nil, "rat_spawnChance", 0, 100, 0 )
 
 
@@ -1638,7 +1642,7 @@ function TOOL.BuildCPanel( cpanel )
 	MakeCheckbox( cpanel, "#tool.rat.previewArrayBoundsDescription", "rat_previewArrayBounds", 0 )
 
 
-	-- [[----------------------------------------------------------------]] -- SPAWN TRANSFORMS
+	-- [[----------------------------------------------------------------]] -- ARRAY POINT TRANSFORMS
 	local collapsiblePoint = MakeCollapsible( cpanel, "#tool.rat.pointTransforms", "rat_pointTransformExpanded" )
 
 
@@ -1671,7 +1675,7 @@ function TOOL.BuildCPanel( cpanel )
 	MakeGapSliderWangCombo( collapsiblePoint, "#tool.rat.yAxis", Color( 0, 230, 0 ), "rat_yGapSpacing", "rat_yGapInterval", "rat_yGapStart" )
 	MakeGapSliderWangCombo( collapsiblePoint, "#tool.rat.zAxis", Color( 0, 0, 230 ), "rat_zGapSpacing", "rat_zGapInterval", "rat_zGapStart" )
 
-	-- [[----------------------------------------------------------------]] -- ARRAY OFFSETS
+	-- [[----------------------------------------------------------------]] -- ARRAY ORIGIN TRANSFORMS
 	local collapsibleArray = MakeCollapsible( cpanel, "#tool.rat.arrayTransforms", "rat_arrayTransformsExpanded" )
 
 
@@ -1683,8 +1687,34 @@ function TOOL.BuildCPanel( cpanel )
 	MakeAxisSliderGroup( collapsibleArray, "#tool.rat.arrayRotation", "#tool.rat.arrayRotationDescription", -180, 180, 0,
 	"rat_xArrayRotation", "rat_yArrayRotation", "rat_zArrayRotation" )
 
+	MakeText( collapsibleArray, Color( 50, 50, 50 ), "" )
 
-	-- [[----------------------------------------------------------------]] -- RANDOM SPAWN OFFSETS
+	local snapGroupTitle = MakeText( collapsibleArray, Color( 50, 50, 50 ), "#tool.rat.arraySnap" )
+	snapGroupTitle:SetTooltip( "#tool.rat.arraySnapDescription" )
+	snapGroupTitle:SetMouseInputEnabled( true )
+	function snapGroupTitle:DoClick()
+		GetConVar( "rat_xArraySnap" ):Revert()
+		GetConVar( "rat_yArraySnap" ):Revert()
+		GetConVar( "rat_zArraySnap" ):Revert()
+	end
+	function snapGroupTitle:OnCursorEntered()
+		snapGroupTitle:SetColor( Color( 200, 100, 0 ) )
+	end
+	function snapGroupTitle:OnCursorExited()
+		snapGroupTitle:SetColor( Color( 50, 50, 50 ) )
+	end
+
+	local dListSnap = vgui.Create( "DPanelList" ) ----
+	dListSnap:DockMargin( 0, -20, 0, 0 )
+	dListSnap:SetAutoSize( true )
+	collapsibleArray:AddItem( dListSnap )
+
+	MakeNumberWang( dListSnap, "#tool.rat.xAxis", nil, "rat_xArraySnap", 0, 9999, 0 )
+	MakeNumberWang( dListSnap, "#tool.rat.yAxis", nil, "rat_yArraySnap", 0, 9999, 0 )
+	MakeNumberWang( dListSnap, "#tool.rat.zAxis", nil, "rat_zArraySnap", 0, 9999, 0 )
+
+
+	-- [[----------------------------------------------------------------]] -- RANDOMIZED ARRAY POINT TRANSFORMS
 	local collapsibleRandom = MakeCollapsible( cpanel, "#tool.rat.randomPointTransforms", "rat_randomPointTransformsExpanded" )
 
 
@@ -1707,15 +1737,16 @@ function TOOL.BuildCPanel( cpanel )
 	div:SetPaintBackground( false )
 	cpanel:AddItem( div )
 
-	-------------------------------------------------
-	-- CHECKBOX INITIAL STATES AND STATE CALLBACKS --
-	-------------------------------------------------
+	----------------------------------------
+	-- INITIAL STATES AND STATE CALLBACKS --
+	----------------------------------------
 
 	-- Initial enabled states for checkboxes
 	SetCheckboxState( checkboxRootBoneOnly, GetConVar( "rat_spawnFrozen" ):GetBool() )
 	SetCheckboxState( checkboxRandomRagdollPose, GetConVar( "rat_spawnFrozen" ):GetBool() && !GetConVar( "rat_freezeRootBoneOnly" ):GetBool() )
 	SetCheckboxState( checkboxFacePlayer, GetConVar( "rat_ignoreSurfaceAngle" ):GetBool() )
 
+	-- Callbacks for enabled states for checkboxes
 	cvars.AddChangeCallback( "rat_spawnFrozen", function( convarName, valueOld, valueNew )
 		SetCheckboxState( checkboxRootBoneOnly, tobool( valueNew ) )
 		SetCheckboxState( checkboxRandomRagdollPose, !GetConVar( "rat_freezeRootBoneOnly" ):GetBool() && tobool( valueNew ) )
@@ -1728,6 +1759,26 @@ function TOOL.BuildCPanel( cpanel )
 	cvars.AddChangeCallback( "rat_ignoreSurfaceAngle", function( convarName, valueOld, valueNew )
 		SetCheckboxState( checkboxFacePlayer, tobool( valueNew ) )
 	end, "rat_ignoreSurfaceAngle_callback" )
+
+	-- Callbacks mostly related to the number of props value
+	-- Callbacks was the most reliable way I found to update this value, If using GetConVar within DNumberWang:OnValueChanged it would return the previous value
+	cvars.AddChangeCallback( "rat_xAmount", function( convarName, valueOld, valueNew )
+		LocalPlayer():GetTool( "rat" ):CreateLocalTransformArray()
+	end, "rat_xAmount_callback_2" )
+	cvars.AddChangeCallback( "rat_yAmount", function( convarName, valueOld, valueNew )
+		LocalPlayer():GetTool( "rat" ):CreateLocalTransformArray()
+	end, "rat_yAmount_callback_2" )
+	cvars.AddChangeCallback( "rat_zAmount", function( convarName, valueOld, valueNew )
+		LocalPlayer():GetTool( "rat" ):CreateLocalTransformArray()
+	end, "rat_zAmount_callback_2" )
+	cvars.AddChangeCallback( "rat_arrayType", function( convarName, valueOld, valueNew )
+		LocalPlayer():GetTool( "rat" ):CreateLocalTransformArray()
+		-- Update dropdown when preset changes
+		comboBox:ChooseOptionID( tonumber( valueNew ) )
+	end, "rat_arrayType_callback" )
+	cvars.AddChangeCallback( "rat_arrayCount", function( convarName, valueOld, valueNew )
+		ChangeAndColorPropCount( NumberOfPropsText, tonumber( valueNew ) )
+	end, "rat_arrayCount_callback" )
 end
 
 -- Debug tool ui rebuild
