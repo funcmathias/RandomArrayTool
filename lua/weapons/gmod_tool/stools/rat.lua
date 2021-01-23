@@ -940,6 +940,10 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 
 		-- Render single box that envelops the whole array
 		if ( previewArrayBounds ) then
+			local xArrayRotation = playerTool:GetClientNumber( "xArrayRotation" )
+			local yArrayRotation = playerTool:GetClientNumber( "yArrayRotation" )
+			local zArrayRotation = playerTool:GetClientNumber( "zArrayRotation" )
+
 			local ignoreSurfaceAngle = tobool( playerTool:GetClientNumber( "ignoreSurfaceAngle" ) )
 			local facePlayerZ = tobool( playerTool:GetClientNumber( "facePlayerZ" ) )
 			local pushAwayFromSurface = playerTool:GetClientNumber( "pushAwayFromSurface" )
@@ -957,6 +961,10 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 					tempAngle = Angle()
 				end
 			end
+
+			tempAngle:RotateAroundAxis( tempAngle:Forward(), xArrayRotation ) -- X
+			tempAngle:RotateAroundAxis( tempAngle:Right(), yArrayRotation ) -- Y
+			tempAngle:RotateAroundAxis( tempAngle:Up(), zArrayRotation ) -- Z
 
 			local arrayPivot = Vector( playerTool:GetClientNumber( "xArrayPivot" ), playerTool:GetClientNumber( "yArrayPivot" ), playerTool:GetClientNumber( "zArrayPivot" ) )
 			local boundEdgeSpacing = Vector( -10, -10, -10 )
