@@ -116,10 +116,11 @@ if CLIENT then
 	}
 
 	language.Add( "tool.rat.name", "Random Array Tool" )
-	language.Add( "tool.rat.left", "Spawn array of randomized props." )
-	language.Add( "tool.rat.right", "Randomize prop under cursor, or all props within the editing sphere if it's bigger than 0." )
-	language.Add( "tool.rat.reload", "Remove prop under cursor, or all props within the editing sphere if it's bigger than 0." )
-	language.Add( "tool.rat.desc", "This tool lets you spawn props in a randomized array, or randomize already spawned props in various ways." )
+	language.Add( "tool.rat.left", "Spawn array of randomized props" )
+	language.Add( "tool.rat.right", "Randomize prop under cursor, or all props within the editing radius" )
+	language.Add( "tool.rat.reload", "Remove prop under cursor, or all props within the editing radius" )
+	language.Add( "tool.rat.desc", "Spawn props in a randomized array, or randomize already spawned props" )
+	language.Add( "tool.rat.descCPanel", "This tool lets you spawn a selection of props randomly in configurable arrays, with the ability to randomize their settings like skins and bodygroups." )
 
 	language.Add( "tool.rat.sphereRadius", "Editing radius" )
 	language.Add( "tool.rat.previewTraceAxisSizeDescription", "Cursor preview size" )
@@ -635,7 +636,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 
 		-- Make a prop_dynamic and set a random frame from a random animation that model has
 		local animationEntity = nil
-		if ( randomRagdollPose && spawnFrozen && !freezeRootBoneOnly ) then
+		if ( randomRagdollPose && spawnFrozen && !freezeRootBoneOnly && entity:IsRagdoll() ) then
 			animationEntity = ents.Create( "prop_dynamic" )
 			animationEntity:SetModel( modelPath )
 			animationEntity:SetPos( snappedHitPosition + transform + boundsPositionOffset )
@@ -1445,7 +1446,7 @@ ConVarsDefault["rat_arrayTransformsExpanded"] = nil
 ConVarsDefault["rat_randomPointTransformsExpanded"] = nil
 
 function TOOL.BuildCPanel( cpanel )
-	MakeText( cpanel, Color( 50, 50, 50 ), "#tool.rat.desc" )
+	MakeText( cpanel, Color( 50, 50, 50 ), "#tool.rat.descCPanel" )
 
 	cpanel:AddControl( "ComboBox", { MenuButton = 1, Folder = "rat", Options = { [ "#preset.default" ] = ConVarsDefault }, CVars = table.GetKeys( ConVarsDefault ) } )
 
