@@ -18,6 +18,7 @@ TOOL.ClientConVar["previewTraceAxisSize"] = "10"
 TOOL.ClientConVar["spawnFrozen"] = "1"
 TOOL.ClientConVar["freezeRootBoneOnly"] = "1"
 TOOL.ClientConVar["randomRagdollPose"] = "1"
+TOOL.ClientConVar["randomPropPose"] = "0"
 TOOL.ClientConVar["noCollide"] = "0"
 TOOL.ClientConVar["noShadow"] = "0"
 
@@ -128,6 +129,7 @@ if CLIENT then
 	language.Add( "tool.rat.spawnFrozen", "Spawn frozen" )
 	language.Add( "tool.rat.freezeRootBoneOnly", "Freeze only root bone of ragdolls" )
 	language.Add( "tool.rat.randomRagdollPose", "Random animation pose for ragdolls" )
+	language.Add( "tool.rat.randomPropPose", "Random animation pose for props" )
 	language.Add( "tool.rat.noCollide", "No collide (world only)" )
 	language.Add( "tool.rat.noShadow", "No dynamic shadow" )
 
@@ -596,6 +598,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 	local spawnFrozen = tobool( self:GetClientNumber( "spawnFrozen" ) )
 	local freezeRootBoneOnly = tobool( self:GetClientNumber( "freezeRootBoneOnly" ) )
 	local randomRagdollPose = tobool( self:GetClientNumber( "randomRagdollPose" ) )
+	local randomPropPose = tobool( self:GetClientNumber( "randomPropPose" ) )
 	local noCollide = tobool( self:GetClientNumber( "noCollide" ) )
 	local noShadow = tobool( self:GetClientNumber( "noShadow" ) )
 
@@ -634,9 +637,21 @@ function TOOL:SpawnPropTable( player, trace, sid )
 
 		self:RandomizeProp( entity )
 
-		-- Make a prop_dynamic and set a random frame from a random animation that model has
+		local propAnimationCount = entity:GetSequenceCount()
+
+		-- For random prop pose just set the animation
+		if ( randomPropPose && propAnimationCount > 1 && !entity:IsRagdoll() ) then
+			-- If the prop is an effect type set the animation on the attached entity
+			local propToAnimate = ( entityType != "prop_effect" ) && entity || entity.AttachedEntity
+
+			local sequenceRandom = math.random( 0, propAnimationCount )
+			propToAnimate:SetSequence( sequenceRandom )
+			propToAnimate:SetCycle( math.Rand( 0, 1 ) )
+		end
+
+		-- For random ragdoll pose make a prop_dynamic and set a random frame from a random animation that model has that we can later use to copy bone positions
 		local animationEntity = nil
-		if ( randomRagdollPose && spawnFrozen && !freezeRootBoneOnly && entity:IsRagdoll() ) then
+		if ( randomRagdollPose && spawnFrozen && !freezeRootBoneOnly && entity:IsRagdoll() && propAnimationCount > 1 ) then
 			animationEntity = ents.Create( "prop_dynamic" )
 			animationEntity:SetModel( modelPath )
 			animationEntity:SetPos( snappedHitPosition + transform + boundsPositionOffset )
@@ -644,26 +659,19 @@ function TOOL:SpawnPropTable( player, trace, sid )
 			animationEntity:SetNoDraw( true )
 			animationEntity:Spawn()
 
-			local sequenceCount = animationEntity:GetSequenceCount()
-			if ( sequenceCount > 1 ) then
-				local sequenceRandom = math.random( 1, sequenceCount - 1 )
-				local sequenceLabel = animationEntity:GetSequenceInfo( sequenceRandom ).label
+			local sequenceRandom = math.random( 1, propAnimationCount - 1 )
+			local sequenceLabel = animationEntity:GetSequenceInfo( sequenceRandom ).label
 
-				-- Animations containing these words are mostly T-pose so reroll and choose a different animation
-				while ( string.find( sequenceLabel, "gesture" ) || string.find( sequenceLabel, "accent" ) || string.find( sequenceLabel, "Delta" ) ||
-				string.find( sequenceLabel, "Frame" ) || string.find( sequenceLabel, "g_" ) || string.find( sequenceLabel, "G_" ) ||
-				string.find( sequenceLabel, "apex" ) || string.find( sequenceLabel, "Spine" ) ) do
-					sequenceRandom = math.random( 1, sequenceCount - 1 )
-					sequenceLabel = animationEntity:GetSequenceInfo( sequenceRandom ).label
-					-- print( "rerolled " .. sequenceLabel )
-				end
-				animationEntity:SetSequence( sequenceRandom )
-				animationEntity:SetCycle( math.Rand( 0, 1 ) )
-			else
-				-- If jus one sequence (base pose) then remove the animationEntity to avoid some calculation
-				animationEntity:Remove()
-				animationEntity = nil
+			-- Animations containing these words are mostly T-pose so reroll and choose a different animation
+			while ( string.find( sequenceLabel, "gesture" ) || string.find( sequenceLabel, "accent" ) || string.find( sequenceLabel, "Delta" ) ||
+			string.find( sequenceLabel, "Frame" ) || string.find( sequenceLabel, "g_" ) || string.find( sequenceLabel, "G_" ) ||
+			string.find( sequenceLabel, "apex" ) || string.find( sequenceLabel, "Spine" ) ) do
+				sequenceRandom = math.random( 1, propAnimationCount - 1 )
+				sequenceLabel = animationEntity:GetSequenceInfo( sequenceRandom ).label
+				-- print( "rerolled " .. sequenceLabel )
 			end
+			animationEntity:SetSequence( sequenceRandom )
+			animationEntity:SetCycle( math.Rand( 0, 1 ) )
 		end
 
 		-- Freeze prop (prop_effect doesn't move so don't freeze them)
@@ -679,7 +687,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 					-- Causes severe lag because of the halo effect, but can be a bit confusing/annoying to unfreeze a ragdoll without..
 					player:AddFrozenPhysicsObject( entity, physBone )
 
-					-- Copy bone positions from animationEntity to the ragdoll
+					-- If random pose is enabled then continue and copy bone positions from animationEntity to the ragdoll
 					if ( animationEntity == nil ) then continue end
 
 					-- Delay so it will start copying after the prop_dynamic animation is set
@@ -1458,6 +1466,7 @@ function TOOL.BuildCPanel( cpanel )
 	MakeCheckbox( cpanel, "#tool.rat.spawnFrozen", "rat_spawnFrozen", 0 )
 	local checkboxRootBoneOnly = MakeCheckbox( cpanel, "#tool.rat.freezeRootBoneOnly", "rat_freezeRootBoneOnly", 10 )
 	local checkboxRandomRagdollPose = MakeCheckbox( cpanel, "#tool.rat.randomRagdollPose", "rat_randomRagdollPose", 10 )
+	MakeCheckbox( cpanel, "#tool.rat.randomPropPose", "rat_randomPropPose", 0 )
 	MakeCheckbox( cpanel, "#tool.rat.noCollide", "rat_noCollide", 0 )
 	MakeCheckbox( cpanel, "#tool.rat.noShadow", "rat_noShadow", 0 )
 
