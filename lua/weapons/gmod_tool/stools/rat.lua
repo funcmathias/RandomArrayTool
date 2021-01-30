@@ -1628,9 +1628,37 @@ function TOOL.BuildCPanel( cpanel )
 	end
 	cpanel:AddItem( dListNumber )
 
-	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.xAxis" ), nil, "rat_xAmount", 1, 999, 10 )
-	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.yAxis" ), nil, "rat_yAmount", 1, 999, 10 )
-	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.zAxis" ), nil, "rat_zAmount", 1, 999, 10 )
+	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.xAxis" ), nil, "rat_xAmount", 1, 999, 20 )
+	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.yAxis" ), nil, "rat_yAmount", 1, 999, 20 )
+	MakeNumberWang( dListNumber, language.GetPhrase( "#tool.rat.numberIn" ) .. language.GetPhrase( "#tool.rat.zAxis" ), nil, "rat_zAmount", 1, 999, 20 )
+
+	-- Colored squares next to the axis wangs
+	local xAxisColor = vgui.Create( "DPanel", dListNumber )
+	xAxisColor:Dock( NODOCK )
+	xAxisColor:SetPos( 0, 4)
+	xAxisColor:SetMouseInputEnabled( false )
+	xAxisColor.Paint = function()
+		surface.SetDrawColor( Color( 230, 0, 0 ) )
+		surface.DrawRect( 10, 0, 4, 12 )
+	end
+
+	local yAxisColor = vgui.Create( "DPanel", dListNumber )
+	yAxisColor:Dock( NODOCK )
+	yAxisColor:SetPos( 0, 28)
+	yAxisColor:SetMouseInputEnabled( false )
+	yAxisColor.Paint = function()
+		surface.SetDrawColor( Color( 0, 230, 0 ) )
+		surface.DrawRect( 10, 0, 4, 12 )
+	end
+
+	local zAxisColor = vgui.Create( "DPanel", dListNumber )
+	zAxisColor:Dock( NODOCK )
+	zAxisColor:SetPos( 0, 52)
+	zAxisColor:SetMouseInputEnabled( false )
+	zAxisColor.Paint = function()
+		surface.SetDrawColor( Color( 0, 0, 230 ) )
+		surface.DrawRect( 10, 0, 4, 12 )
+	end
 
 	MakeNumberWang( cpanel, "#tool.rat.spawnChance", nil, "rat_spawnChance", 0, 100, 0 )
 
@@ -1736,9 +1764,37 @@ function TOOL.BuildCPanel( cpanel )
 	dListSnap:SetAutoSize( true )
 	collapsibleArray:AddItem( dListSnap )
 
-	MakeNumberWang( dListSnap, "#tool.rat.xAxis", nil, "rat_xArraySnap", 0, 9999, 0 )
-	MakeNumberWang( dListSnap, "#tool.rat.yAxis", nil, "rat_yArraySnap", 0, 9999, 0 )
-	MakeNumberWang( dListSnap, "#tool.rat.zAxis", nil, "rat_zArraySnap", 0, 9999, 0 )
+	MakeNumberWang( dListSnap, "#tool.rat.xAxis", nil, "rat_xArraySnap", 0, 9999, 10 )
+	MakeNumberWang( dListSnap, "#tool.rat.yAxis", nil, "rat_yArraySnap", 0, 9999, 10 )
+	MakeNumberWang( dListSnap, "#tool.rat.zAxis", nil, "rat_zArraySnap", 0, 9999, 10 )
+
+	-- Colored squares next to the axis wangs
+	local xSnapAxisColor = vgui.Create( "DPanel", dListSnap )
+	xSnapAxisColor:Dock( NODOCK )
+	xSnapAxisColor:SetPos( 0, 4)
+	xSnapAxisColor:SetMouseInputEnabled( false )
+	xSnapAxisColor.Paint = function()
+		surface.SetDrawColor( Color( 230, 0, 0 ) )
+		surface.DrawRect( 0, 0, 4, 12 )
+	end
+
+	local ySnapAxisColor = vgui.Create( "DPanel", dListSnap )
+	ySnapAxisColor:Dock( NODOCK )
+	ySnapAxisColor:SetPos( 0, 28)
+	ySnapAxisColor:SetMouseInputEnabled( false )
+	ySnapAxisColor.Paint = function()
+		surface.SetDrawColor( Color( 0, 230, 0 ) )
+		surface.DrawRect( 0, 0, 4, 12 )
+	end
+
+	local zSnapAxisColor = vgui.Create( "DPanel", dListSnap )
+	zSnapAxisColor:Dock( NODOCK )
+	zSnapAxisColor:SetPos( 0, 52)
+	zSnapAxisColor:SetMouseInputEnabled( false )
+	zSnapAxisColor.Paint = function()
+		surface.SetDrawColor( Color( 0, 0, 230 ) )
+		surface.DrawRect( 0, 0, 4, 12 )
+	end
 
 
 	-- [[----------------------------------------------------------------]] -- RANDOMIZED ARRAY POINT TRANSFORMS
