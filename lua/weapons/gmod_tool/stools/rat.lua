@@ -680,6 +680,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 
 			if ( entity:IsRagdoll() && !freezeRootBoneOnly ) then
 				local boneCount = entity:GetPhysicsObjectCount()
+				local boneTable = {}
 
 				for bone = 0, boneCount - 1 do
 					local physBone = entity:GetPhysicsObjectNum( bone )
@@ -687,28 +688,25 @@ function TOOL:SpawnPropTable( player, trace, sid )
 					-- Causes severe lag because of the halo effect, but can be a bit confusing/annoying to unfreeze a ragdoll without..
 					player:AddFrozenPhysicsObject( entity, physBone )
 
-					-- If random pose is enabled then continue and copy bone positions from animationEntity to the ragdoll
+					-- Store each phys bone's transforms in a table and apply later in the timed function
 					if ( animationEntity == nil ) then continue end
+					boneTable[entity:TranslatePhysBoneToBone( bone )] = physBone
+				end
 
-					-- Delay so it will start copying after the prop_dynamic animation is set
-					timer.Simple( 0.1, function()
-						local animBoneNum = entity:TranslatePhysBoneToBone( bone )
-						local pos, ang = animationEntity:GetBonePosition( animBoneNum )
+				-- If random pose is enabled then copy bone positions from animationEntity to the ragdoll
+				-- Delay by one tick so it will start copying bone positions after the prop_dynamic animation is set
+				timer.Simple( 0, function()
+					for boneNum, physBone in pairs( boneTable ) do
+						local pos, ang = animationEntity:GetBonePosition( boneNum )
 						physBone:SetPos( pos )
 						physBone:SetAngles( ang )
-					end )
-				end
+						animationEntity:Remove()
+					end
+				end )
 			elseif ( phys:IsValid() ) then
 				phys:EnableMotion( false )
 				player:AddFrozenPhysicsObject( entity, phys )
 			end
-		end
-
-		-- Remove the animationEntity if it has been used
-		if ( animationEntity != nil ) then
-			timer.Simple( 0.2, function()
-				animationEntity:Remove()
-			end )
 		end
 
 		if ( noCollide && entityType != "prop_effect" ) then
