@@ -44,7 +44,7 @@ TOOL.ClientConVar["spawnChance"] = "100"
 -- Array ConVars
 TOOL.ClientConVar["arrayType"] = "1"
 TOOL.ClientConVar["previewPointAxis"] = "1"
-TOOL.ClientConVar["previewPointAxisSize"] = "5"
+TOOL.ClientConVar["previewPointAxisSize"] = "8"
 TOOL.ClientConVar["previewArrayBounds"] = "0"
 TOOL.ClientConVar["arrayCount"] = "1"
 
@@ -57,7 +57,7 @@ TOOL.ClientConVar["randomPointTransformsExpanded"] = "0"
 -- X axis ConVars
 TOOL.ClientConVar["xAmount"] = "3"
 
-TOOL.ClientConVar["xSpacingBase"] = "50"
+TOOL.ClientConVar["xSpacingBase"] = "64"
 TOOL.ClientConVar["xRotationBase"] = "0"
 TOOL.ClientConVar["xGapInterval"] = "2"
 TOOL.ClientConVar["xGapSpacing"] = "0"
@@ -75,7 +75,7 @@ TOOL.ClientConVar["xRotationRandomStepped"] = "0"
 -- Y axis ConVars
 TOOL.ClientConVar["yAmount"] = "3"
 
-TOOL.ClientConVar["ySpacingBase"] = "50"
+TOOL.ClientConVar["ySpacingBase"] = "64"
 TOOL.ClientConVar["yRotationBase"] = "0"
 TOOL.ClientConVar["yGapInterval"] = "2"
 TOOL.ClientConVar["yGapSpacing"] = "0"
@@ -93,7 +93,7 @@ TOOL.ClientConVar["yRotationRandomStepped"] = "0"
 -- Z axis ConVars
 TOOL.ClientConVar["zAmount"] = "2"
 
-TOOL.ClientConVar["zSpacingBase"] = "50"
+TOOL.ClientConVar["zSpacingBase"] = "64"
 TOOL.ClientConVar["zRotationBase"] = "0"
 TOOL.ClientConVar["zGapInterval"] = "2"
 TOOL.ClientConVar["zGapSpacing"] = "0"
@@ -159,7 +159,7 @@ if CLIENT then
 	language.Add( "tool.rat.pushAwayFromSurface", "Push array from surface" )
 	language.Add( "tool.rat.usePropOrigin", "Use prop origins for position" )
 
-	language.Add( "tool.rat.numOfProps", "Number of props: " )
+	language.Add( "tool.rat.numOfProps", "Number of points: " )
 	language.Add( "tool.rat.numberIn", "Number in " )
 
 	language.Add( "tool.rat.spawnChance", "% Spawn chance" )
@@ -349,7 +349,8 @@ function TOOL:CreateLocalTransformArray()
 
 		for i = 0, pointAmount - 1 do
 			if ( gapCount == i ) then
-				combinedGapSize = combinedGapSize + gapSize
+				-- If pointSpacing is negative then reverse gapSize
+				combinedGapSize = combinedGapSize + ( (pointSpacing >= 0) && gapSize || (gapSize * -1) )
 				gapCount = gapCount + gapIncrement
 			end
 			pointTable[i] = pointSpacing * i + combinedGapSize
@@ -959,6 +960,10 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 			local yArrayRotation = playerTool:GetClientNumber( "yArrayRotation" )
 			local zArrayRotation = playerTool:GetClientNumber( "zArrayRotation" )
 
+			local xSpacingBase = playerTool:GetClientNumber( "xSpacingBase" )
+			local ySpacingBase = playerTool:GetClientNumber( "ySpacingBase" )
+			local zSpacingBase = playerTool:GetClientNumber( "zSpacingBase" )
+
 			local ignoreSurfaceAngle = tobool( playerTool:GetClientNumber( "ignoreSurfaceAngle" ) )
 			local facePlayerZ = tobool( playerTool:GetClientNumber( "facePlayerZ" ) )
 			local pushAwayFromSurface = playerTool:GetClientNumber( "pushAwayFromSurface" )
@@ -982,7 +987,8 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 			tempAngle:RotateAroundAxis( tempAngle:Up(), zArrayRotation ) -- Z
 
 			local arrayPivot = Vector( playerTool:GetClientNumber( "xArrayPivot" ), playerTool:GetClientNumber( "yArrayPivot" ), playerTool:GetClientNumber( "zArrayPivot" ) )
-			local boundEdgeSpacing = Vector( -10, -10, -10 )
+			-- Bounds edge spacing needs to be reversed if the spacing value is negative
+			local boundEdgeSpacing = Vector( (xSpacingBase >= 0) && -10 || 10, (ySpacingBase >= 0) && -10 || 10, (zSpacingBase >= 0) && -10 || 10 )
 			local boundOffset = maxArrayPosition * arrayPivot
 			boundOffset:Rotate( tempAngle )
 			boundOffset:Sub( surfacePushOffset )
