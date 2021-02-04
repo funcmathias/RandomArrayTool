@@ -222,9 +222,6 @@ if SERVER then
 	net.Receive( "sendTables", function( len, player )
 		local sid = player:SteamID()
 		modelPathTable[sid] = net.ReadTable()
-		print( "--- Model Path Table Start ---" )
-		PrintTable( modelPathTable )
-		print( "--- Model Path Table End ---" )
 	end )
 end
 
@@ -614,23 +611,46 @@ function TOOL:SpawnPropTable( player, trace, sid )
 	undo.SetCustomUndoText( "#tool.rat.undo" )
 	undo.SetPlayer( player )
 
+	-- To keep track of the limits internally so we can avoid spamming the user with messages
+	local effectLimitHit = false
+	local propLimitHit = false
+	local ragdollLimitHit = false
+
 	-- Loop per position in the table
 	for i, transform in pairs( transformTable ) do
-		if ( !player:CheckLimit( "props" ) ) then break end
 		-- Check spawn chance
 		if ( spawnChance < math.random( 1, 100 ) ) then continue end
 
-		-- Adds random rotation to input angle
-		elementAngle = self:RandomizeRotation( elementAngleStatic )
-
 		local modelPath = GetRandomModelPath( sid )
 		local entityType = "prop_effect"
+		local limitType = "effects"
 		-- Think this valid check includes checking for collision, so a model without collision will be a prop_effect?
-		if ( util.IsValidProp( modelPath ) ) then entityType = "prop_physics" end
-		if ( util.IsValidRagdoll( modelPath ) ) then entityType = "prop_ragdoll" end
+		if ( util.IsValidProp( modelPath ) ) then
+			entityType = "prop_physics"
+			limitType = "props"
+		end
+		if ( util.IsValidRagdoll( modelPath ) ) then
+			entityType = "prop_ragdoll"
+			limitType = "ragdolls"
+		end
+
+		-- Abort spawning if player has reached the limit on that type of prop
+		-- Kind of messy but want to not use CheckLimit anymore if we know the limit has been hit to avoid spamming the limit message to the user
+		if ( limitType == "props" && propLimitHit ) then continue end
+		if ( limitType == "ragdolls" && ragdollLimitHit ) then continue end
+		if ( limitType == "effects" && effectLimitHit ) then continue end
+		if ( !player:CheckLimit( limitType ) ) then
+			if ( limitType == "props" ) then propLimitHit = true
+			elseif ( limitType == "ragdolls" ) then ragdollLimitHit = true
+			elseif ( limitType == "effects" ) then effectLimitHit = true end
+			continue
+		end
 
 		local entity = ents.Create( entityType )
 		entity:SetModel( modelPath )
+
+		-- Adds random rotation to input angle
+		elementAngle = self:RandomizeRotation( elementAngleStatic )
 
 		-- If not using prop origin for position then calculate offset based on the bottom of the prop bounds (doesn't work well on most ragdolls so skip them)
 		local boundsPositionOffset = ( usePropOrigin || entityType == "prop_ragdoll" ) && Vector() || elementAngle:Up() * math.abs( entity:OBBMins().Z )
@@ -721,7 +741,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 		-- Add entity to undo and cleanup
 		undo.AddEntity( entity )
 		player:AddCleanup( "rat_arrays", entity )
-		player:AddCount( "props", entity )
+		player:AddCount( limitType, entity )
 
 		spawnedAnyProps = true
 	end
