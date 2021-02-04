@@ -222,6 +222,9 @@ if SERVER then
 	net.Receive( "sendTables", function( len, player )
 		local sid = player:SteamID()
 		modelPathTable[sid] = net.ReadTable()
+		print( "--- Model Path Table Start ---" )
+		PrintTable( modelPathTable )
+		print( "--- Model Path Table End ---" )
 	end )
 end
 
@@ -573,6 +576,7 @@ function TOOL:SpawnPropTable( player, trace, sid )
 	local spawnedAnyProps = false
 
 	if ( next( modelPathTable ) == nil ) then return end
+	if ( modelPathTable[sid] == nil ) then return end
 	if ( next( modelPathTable[sid] ) == nil ) then return end
 	local transformTable = self:CreateLocalTransformArray()
 	if ( next( transformTable ) == nil ) then return end
@@ -866,15 +870,6 @@ function TOOL:Holster()
 		toolActive = false
 	end
 end
-
-gameevent.Listen( "player_connect_client" )
-hook.Add( "player_connect_client", "rat_player_connect", function( data )
-	local sid = data.networkid	-- Same as Player:SteamID()
-
-	-- The table is stored server side, so we make sure to reset it every time someone joins to match the local empty model list
-	-- Also fixes an error that could happen the first time someone joins, if they try to click before adding any models to the list
-	modelPathTable[sid] = {}
-end )
 
 ----------------------------------------------------
 ----------------------------------------------------
@@ -1458,6 +1453,8 @@ ConVarsDefault["rat_arrayTransformsExpanded"] = nil
 ConVarsDefault["rat_randomPointTransformsExpanded"] = nil
 
 function TOOL.BuildCPanel( cpanel )
+	UpdateServerTable()
+
 	MakeText( cpanel, Color( 50, 50, 50 ), "#tool.rat.descCPanel" )
 
 	cpanel:AddControl( "ComboBox", { MenuButton = 1, Folder = "rat", Options = { [ "#preset.default" ] = ConVarsDefault }, CVars = table.GetKeys( ConVarsDefault ) } )
