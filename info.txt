@@ -4,7 +4,7 @@
 	"author_name" "func_Mathias"
 	"info" "
 {
-	"description": "This tool lets you spawn props in a randomized array, or randomize already spawned props in various ways.",
+	"description": "A tool for spawning a selection of props randomly in configurable arrays, with the ability to randomize their settings like skins and bodygroups. It also has the ability to randomize already spawned props.",
 	"type": "tool",
 	"tags": 
 	[
