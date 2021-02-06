@@ -724,8 +724,8 @@ function TOOL:SpawnPropTable( player, trace, sid )
 				end
 
 				-- If random pose is enabled then copy bone positions from animationEntity to the ragdoll
-				-- Delay by one tick so it will start copying bone positions after the prop_dynamic animation is set
-				timer.Simple( 0, function()
+				-- Delay so it will start copying bone positions after the prop_dynamic animation is set
+				timer.Simple( 0.15, function()
 					for boneNum, physBone in pairs( boneTable ) do
 						local pos, ang = animationEntity:GetBonePosition( boneNum )
 						physBone:SetPos( pos )
