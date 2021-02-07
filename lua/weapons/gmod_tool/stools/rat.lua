@@ -295,6 +295,8 @@ local function CheckModelPath( inputPath )
 		-- Finds every model file in a path and adds them to a table
 		local tempMdlTable = file.Find( inputPath .. "/*.mdl", "GAME" )
 
+		if ( tempMdlTable == nil ) then return {} end
+
 		-- file.Find returns file name, so need to add the rest of the path
 		for i, fileName in pairs( tempMdlTable ) do
 			tempMdlTable[i] = inputPath .. "/" .. fileName
