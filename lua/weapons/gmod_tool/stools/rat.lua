@@ -128,6 +128,8 @@ if CLIENT then
 	language.Add( "tool.rat.desc", "Spawn props in a randomized array, or randomize already spawned props" )
 	language.Add( "tool.rat.descCPanel", "This tool lets you spawn a selection of props randomly in configurable arrays, with the ability to randomize their settings like skins and bodygroups." )
 
+	language.Add( "tool.rat.resetText", "\nClick this text to reset values!" )
+
 	language.Add( "tool.rat.sphereRadius", "Editing radius" )
 	language.Add( "tool.rat.previewTraceAxisSizeDescription", "Cursor preview size" )
 
@@ -154,6 +156,7 @@ if CLIENT then
 
 	language.Add( "tool.rat.mdlAdd", "Add prop by path" )
 	language.Add( "tool.rat.mdlAddButton", "Add to list from path" )
+	language.Add( "tool.rat.dragAndDropTip", "Drag and drop\nmodels here!\n\n(Right click\nto remove)" )
 	language.Add( "tool.rat.propProbabilityTooltip", "Prop spawn probability" )
 	language.Add( "tool.rat.probabilityResetButton", "Reset prop probability" )
 	language.Add( "tool.rat.mdlClearButton", "Clear prop list" )
@@ -184,55 +187,82 @@ if CLIENT then
 
 	language.Add( "tool.rat.pointTransforms", "Array point transforms" )
 	language.Add( "tool.rat.pointSpacing", "Spacing" )
-	language.Add( "tool.rat.pointSpacingDescription", "Space between each array point." .. string.char(10) .. "Click this text to reset values!" )
+	language.Add( "tool.rat.pointSpacingDescription", "Space between each array point." .. language.GetPhrase( "#tool.rat.resetText" ) )
 	language.Add( "tool.rat.pointRotation", "Rotation" )
-	language.Add( "tool.rat.pointRotationDescription", "Rotation of all array points." .. string.char(10) .. "Click this text to reset values!" )
+	language.Add( "tool.rat.pointRotationDescription", "Rotation of all array points." .. language.GetPhrase( "#tool.rat.resetText" ) )
 	language.Add( "tool.rat.pointGaps", "Gaps" )
-	language.Add( "tool.rat.pointGapsDescription", "Add extra spacing every X number of rows." .. string.char(10) .. "Click this text to reset values!" )
+	language.Add( "tool.rat.pointGapsDescription", "Add extra spacing every X number of rows." .. language.GetPhrase( "#tool.rat.resetText" ) )
 	language.Add( "tool.rat.pointGapsInterval", "Gap interval" )
 	language.Add( "tool.rat.pointGapsStart", "Gaps start" )
 
 	language.Add( "tool.rat.arrayTransforms", "Array origin transforms" )
 	language.Add( "tool.rat.arrayPivot", "Pivot" )
-	language.Add( "tool.rat.arrayPivotDescription", "Pivot of the array. 0.5 in all axes will center it to cursor." .. string.char(10) .. "Click this text to reset values!" )
+	language.Add( "tool.rat.arrayPivotDescription", "Pivot of the array. 0.5 in all axes will center it to cursor." .. language.GetPhrase( "#tool.rat.resetText" ) )
 	language.Add( "tool.rat.arraySnap", "Snapping" )
-	language.Add( "tool.rat.arraySnapDescription", "Snapping of the array origin every X world units." .. string.char(10) .. "Click this text to reset values!" )
+	language.Add( "tool.rat.arraySnapDescription", "Snapping of the array origin every X world units." .. language.GetPhrase( "#tool.rat.resetText" ) )
 	language.Add( "tool.rat.arrayRotation", "Rotation" )
-	language.Add( "tool.rat.arrayRotationDescription", "Rotation of the array origin." .. string.char(10) .. "Click this text to reset values!" )
+	language.Add( "tool.rat.arrayRotationDescription", "Rotation of the array origin." .. language.GetPhrase( "#tool.rat.resetText" ) )
 
 	language.Add( "tool.rat.randomPointTransforms", "Randomized array point transforms" )
 	language.Add( "tool.rat.randomPointSpacing", "Random offset" )
-	language.Add( "tool.rat.randomPointSpacingDescription", "Random position offset per array point." .. string.char(10) .. "Click this text to reset values!" )
+	language.Add( "tool.rat.randomPointSpacingDescription", "Random position offset per array point." .. language.GetPhrase( "#tool.rat.resetText" ) )
 	language.Add( "tool.rat.randomPointRotation", "Random rotation" )
-	language.Add( "tool.rat.randomPointRotationDescription", "Random rotation offset per array point." .. string.char(10) .. "Click this text to reset values!" )
+	language.Add( "tool.rat.randomPointRotationDescription", "Random rotation offset per array point." .. language.GetPhrase( "#tool.rat.resetText" ) )
 	language.Add( "tool.rat.randomPointRotationStepped", "Random stepped rotation" )
-	language.Add( "tool.rat.randomRotationSteppedDescription", "Random stepped rotation offset per array point." .. string.char(10) ..
-	"If you use 90 degrees for example, each point will be rotated any of 0, 90, 180 or 270 degrees." .. string.char(10) .. "Click this text to reset values!" )
+	language.Add( "tool.rat.randomRotationSteppedDescription", "Random stepped rotation offset per array point.\n" ..
+	"If you use 90 degrees for example, each point will be rotated any of 0, 90, 180 or 270 degrees." .. language.GetPhrase( "#tool.rat.resetText" ) )
 
 	language.Add( "tool.rat.xAxis", "X axis" )
 	language.Add( "tool.rat.yAxis", "Y axis" )
 	language.Add( "tool.rat.zAxis", "Z axis" )
 
+	language.Add( "tool.rat.noModelsHelp", "No models to spawn! You need to add some to the list." )
 	language.Add( "tool.rat.undo", "Undone Random Array" )
 	language.Add( "Cleanup_rat_arrays", "Random Arrays" )
 	language.Add( "Cleaned_rat_arrays", "Cleaned up all Random Arrays" )
+
+	net.Receive( "rat_userNotification", function()
+		UserNotification( nil, net.ReadString(), net.ReadUInt( 3 ), net.ReadInt( 8 ) )
+	end)
 end
 
 if SERVER then
-	-- Register the network string
-	util.AddNetworkString( "sendTables" )
+	-- Register network strings
+	util.AddNetworkString( "rat_userNotification" )
+	util.AddNetworkString( "rat_sendModelTable" )
 
-	-- When the server receives the clients network information
 	-- Adds the players model table in a server side table with their steam id as the key
-	net.Receive( "sendTables", function( len, player )
+	net.Receive( "rat_sendModelTable", function( len, player )
 		local sid = player:SteamID()
 		modelPathTable[sid] = net.ReadTable()
 	end )
 end
 
+function UserNotification( player, text, type, duration )
+	if ( SERVER ) then
+		net.Start( "rat_userNotification" )
+		net.WriteString( text )
+		net.WriteUInt( type, 3 )
+		net.WriteInt( duration, 8 )
+		net.Send( player )
+	end
+
+	if ( CLIENT ) then
+		notification.AddLegacy( text, type, duration )
+
+		if ( type == NOTIFY_GENERIC ) then -- 0
+			surface.PlaySound( "buttons/button14.wav" )
+		elseif ( type == NOTIFY_ERROR ) then -- 1
+			surface.PlaySound( "buttons/button10.wav" )
+		elseif ( type == NOTIFY_HINT ) then -- 3
+			surface.PlaySound( "buttons/blip1.wav" )
+		end
+	end
+end
+
 -- Send the local model path table to the server
 local function UpdateServerTable()
-	net.Start( "sendTables" )
+	net.Start( "rat_sendModelTable" )
 	net.WriteTable( modelPathTable )
 	net.SendToServer()
 end
@@ -577,9 +607,7 @@ end
 function TOOL:SpawnPropTable( player, trace, sid )
 	local spawnedAnyProps = false
 
-	if ( next( modelPathTable ) == nil ) then return end
-	if ( modelPathTable[sid] == nil ) then return end
-	if ( next( modelPathTable[sid] ) == nil ) then return end
+	if ( modelPathTable[sid] == nil || next( modelPathTable[sid] ) == nil ) then return end
 	local transformTable = self:CreateLocalTransformArray()
 	if ( next( transformTable ) == nil ) then return end
 
@@ -786,6 +814,11 @@ function TOOL:LeftClick( trace )
 	if ( SERVER ) then
 		local player = self:GetOwner()
 		local sid = player:SteamID()
+
+		-- Notify the user that they need to add models to the list
+		if ( modelPathTable[sid] == nil || next( modelPathTable[sid] ) == nil ) then
+			UserNotification( player, "#tool.rat.noModelsHelp", 3, 3 )
+		end
 
 		-- Spawns the props
 		return self:SpawnPropTable( player, trace, sid )
@@ -1534,6 +1567,36 @@ function TOOL.BuildCPanel( cpanel )
 	MdlView:SetSpaceY( 1 )
 	MdlView:SetSpaceX( 1 )
 	MdlView:SetBorder( 2 ) -- Works but not on the bottom....
+
+	local labelDragAndDrop = vgui.Create( "DLabel", Scroll )
+	labelDragAndDrop:SetText( "#tool.rat.dragAndDropTip" )
+	labelDragAndDrop:SetColor( Color( 180, 180, 180 ) )
+	labelDragAndDrop:SetFont( "ScoreboardDefault" )
+	labelDragAndDrop:SetAutoStretchVertical( true )
+	labelDragAndDrop:SizeToContentsX()
+
+	-- Keep the drag and drop text centered in the model list box
+	function Scroll:OnSizeChanged( newWidth, newHeight )
+		labelDragAndDrop:SetPos( ( newWidth - labelDragAndDrop:GetWide() + 10 ) / 2 , ( newHeight - labelDragAndDrop:GetTall() ) / 2 )
+	end
+
+	function MdlView:OnChildAdded()
+		-- Have to call layout manually since this now overrides the original OnChildAdded for DIconLayout
+		self:Layout()
+
+		-- If spawn icons are added then hide the drag and drop text
+		labelDragAndDrop:SetVisible( false )
+	end
+
+	function MdlView:OnChildRemoved()
+		-- Have to call layout manually since this now overrides the original OnChildRemoved for DIconLayout
+		self:Layout()
+
+		-- If there are no spawn icons then show the drag and drop text
+		if ( MdlView:ChildCount() <= 0) then
+			labelDragAndDrop:SetVisible( true )
+		end
+	end
 
 	Scroll:Receiver( "SandboxContentPanel", function(self, inputPanels, dropped)
 		if ( dropped ) then
