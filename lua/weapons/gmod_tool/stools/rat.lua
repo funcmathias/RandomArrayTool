@@ -931,6 +931,15 @@ function TOOL:Holster()
 	end
 end
 
+-- Override CanTool so it should always be true, this is to avoid certain brush entities with whitelists that would stop the tool from placing props on it
+local function OverrideCanTool( player, trace, tool )
+	if ( tool == "rat" ) then
+		return true;
+	end
+end
+
+hook.Add( "CanTool", "rat_OverrideCanTool", OverrideCanTool )
+
 ----------------------------------------------------
 ----------------------------------------------------
 ----------------------------------------------------
