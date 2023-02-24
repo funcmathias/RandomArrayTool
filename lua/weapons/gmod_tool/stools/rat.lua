@@ -925,6 +925,7 @@ function TOOL:Think()
 	end
 end
 
+-- Holster only gets called when switching to another weapon, not when switching tools or on player death
 function TOOL:Holster()
 	if ( CLIENT ) then
 		toolActive = false
@@ -957,17 +958,23 @@ hook.Add( "CanTool", "rat_OverrideCanTool", OverrideCanTool )
 -- [[----------------------------------------------------------------]] -- WORLD SPACE PREVIEWS
 
 -- Render hook for drawing visualizations for array positions and some more
-hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( bDrawingDepth, bDrawingSkybox )
-	local playerTool = LocalPlayer():GetTool()
-	if ( toolActive && playerTool && !bDrawingSkybox ) then
+-- Switched from PostDrawTranslucentRenderables to PreDrawViewModels to avoid the previews rendering in water reflections and dropping performance
+hook.Add( "PreDrawViewModels", "rat_ArrayPreviewRender", function()
+	-- Make sure toolActive doesn't stay true after a player death, Holster and PostPlayerDeath did not do the trick (also disable while in a vehicle)
+	if ( !LocalPlayer():Alive() || LocalPlayer():InVehicle() ) then toolActive = false end
+
+	local activeTool = LocalPlayer():GetTool()
+	local ratTool = LocalPlayer():GetTool("rat")
+
+	if ( toolActive && ratTool && activeTool == ratTool ) then
 		local trace = LocalPlayer():GetEyeTrace()
 		-- Check if we should use normal or plane trace, modifies original trace data
-		playerTool:CheckPlaneTrace( trace )
+		ratTool:CheckPlaneTrace( trace )
 
 		-- Array position snapping
-		local gridX = playerTool:GetClientNumber( "xArraySnap" )
-		local gridY = playerTool:GetClientNumber( "yArraySnap" )
-		local gridZ = playerTool:GetClientNumber( "zArraySnap" )
+		local gridX = ratTool:GetClientNumber( "xArraySnap" )
+		local gridY = ratTool:GetClientNumber( "yArraySnap" )
+		local gridZ = ratTool:GetClientNumber( "zArraySnap" )
 		local snappedHitPosition = Vector()
 		-- Round the position if snapping for that axis is set to 1 or higher
 		snappedHitPosition.X = gridX >= 1 && math.Round( trace.HitPos.X / gridX) * gridX || trace.HitPos.X
@@ -975,25 +982,25 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 		snappedHitPosition.Z = gridZ >= 1 && math.Round( trace.HitPos.Z / gridZ) * gridZ || trace.HitPos.Z
 
 		local traceHitDistance = LocalPlayer():EyePos():Distance( trace.HitPos )
-		local previewPointAxis = tobool( playerTool:GetClientNumber( "previewPointAxis" ) )
-		local previewPointAxisSize = playerTool:GetClientNumber( "previewPointAxisSize" )
-		local previewArrayBounds = tobool( playerTool:GetClientNumber( "previewArrayBounds" ) )
+		local previewPointAxis = tobool( ratTool:GetClientNumber( "previewPointAxis" ) )
+		local previewPointAxisSize = ratTool:GetClientNumber( "previewPointAxisSize" )
+		local previewArrayBounds = tobool( ratTool:GetClientNumber( "previewArrayBounds" ) )
 
 		local transformTable = {}
 
 		-- Calculate array if either point previews or array previews are active
 		-- It's a bit wastefull if only bounds are on but much easier than having to keep track of when bounds should be updated otherwise
 		if ( previewPointAxis || previewArrayBounds ) then
-			transformTable = playerTool:CreateLocalTransformArray()
+			transformTable = ratTool:CreateLocalTransformArray()
 		end
 
 		-- Render per position visualization
 		if ( previewPointAxis ) then
 			if ( next( transformTable ) == nil ) then return end
 
-			-- playerTool:RandomizeTransformArrayPosition( transformTable ) -- For easy debugging of random positions
-			local elementAngle = playerTool:ModifyTransformArray( trace, transformTable )
-			-- elementAngle = playerTool:RandomizeRotation( elementAngle ) -- For easy debugging of random rotations
+			-- ratTool:RandomizeTransformArrayPosition( transformTable ) -- For easy debugging of random positions
+			local elementAngle = ratTool:ModifyTransformArray( trace, transformTable )
+			-- elementAngle = ratTool:RandomizeRotation( elementAngle ) -- For easy debugging of random rotations
 
 			local pointXAxisLine = elementAngle:Forward() * previewPointAxisSize
 			local pointYAxisLine = elementAngle:Right() * previewPointAxisSize * -1
@@ -1008,7 +1015,7 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 		end
 
 		-- Render thicc axis at cursor trace hit
-		local previewTraceAxisSize = playerTool:GetClientNumber( "previewTraceAxisSize" )
+		local previewTraceAxisSize = ratTool:GetClientNumber( "previewTraceAxisSize" )
 		local previewTraceAxisDistanceSize = previewTraceAxisSize * ( traceHitDistance / 400 )
 		local correctedHitAngle = trace.HitNormal:Angle()
 		correctedHitAngle.X = correctedHitAngle.X + 90
@@ -1020,17 +1027,17 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 
 		-- Render single box that envelops the whole array
 		if ( previewArrayBounds ) then
-			local xArrayRotation = playerTool:GetClientNumber( "xArrayRotation" )
-			local yArrayRotation = playerTool:GetClientNumber( "yArrayRotation" )
-			local zArrayRotation = playerTool:GetClientNumber( "zArrayRotation" )
+			local xArrayRotation = ratTool:GetClientNumber( "xArrayRotation" )
+			local yArrayRotation = ratTool:GetClientNumber( "yArrayRotation" )
+			local zArrayRotation = ratTool:GetClientNumber( "zArrayRotation" )
 
-			local xSpacingBase = playerTool:GetClientNumber( "xSpacingBase" )
-			local ySpacingBase = playerTool:GetClientNumber( "ySpacingBase" )
-			local zSpacingBase = playerTool:GetClientNumber( "zSpacingBase" )
+			local xSpacingBase = ratTool:GetClientNumber( "xSpacingBase" )
+			local ySpacingBase = ratTool:GetClientNumber( "ySpacingBase" )
+			local zSpacingBase = ratTool:GetClientNumber( "zSpacingBase" )
 
-			local ignoreSurfaceAngle = tobool( playerTool:GetClientNumber( "ignoreSurfaceAngle" ) )
-			local facePlayerZ = tobool( playerTool:GetClientNumber( "facePlayerZ" ) )
-			local pushAwayFromSurface = playerTool:GetClientNumber( "pushAwayFromSurface" )
+			local ignoreSurfaceAngle = tobool( ratTool:GetClientNumber( "ignoreSurfaceAngle" ) )
+			local facePlayerZ = tobool( ratTool:GetClientNumber( "facePlayerZ" ) )
+			local pushAwayFromSurface = ratTool:GetClientNumber( "pushAwayFromSurface" )
 
 			local tempAngle = correctedHitAngle + Angle()
 
@@ -1040,7 +1047,7 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 			-- Ignore surface angle and set it do a default world angle, or face player on z axis
 			if ( ignoreSurfaceAngle ) then
 				if ( facePlayerZ ) then
-					tempAngle = Angle( 0, playerTool:GetOwner():EyeAngles().Y, 0 )
+					tempAngle = Angle( 0, ratTool:GetOwner():EyeAngles().Y, 0 )
 				else
 					tempAngle = Angle()
 				end
@@ -1050,7 +1057,7 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 			tempAngle:RotateAroundAxis( tempAngle:Right(), yArrayRotation ) -- Y
 			tempAngle:RotateAroundAxis( tempAngle:Up(), zArrayRotation ) -- Z
 
-			local arrayPivot = Vector( playerTool:GetClientNumber( "xArrayPivot" ), playerTool:GetClientNumber( "yArrayPivot" ), playerTool:GetClientNumber( "zArrayPivot" ) )
+			local arrayPivot = Vector( ratTool:GetClientNumber( "xArrayPivot" ), ratTool:GetClientNumber( "yArrayPivot" ), ratTool:GetClientNumber( "zArrayPivot" ) )
 			-- Bounds edge spacing needs to be reversed if the spacing value is negative
 			local boundEdgeSpacing = Vector( (xSpacingBase >= 0) && -10 || 10, (ySpacingBase >= 0) && -10 || 10, (zSpacingBase >= 0) && -10 || 10 )
 			local boundOffset = maxArrayPosition * arrayPivot
@@ -1060,7 +1067,7 @@ hook.Add( "PostDrawTranslucentRenderables", "rat_ArrayPreviewRender", function( 
 		end
 
 		-- Render sphere for sphere volume
-		local sphereRadius = playerTool:GetClientNumber( "sphereRadius" )
+		local sphereRadius = ratTool:GetClientNumber( "sphereRadius" )
 
 		if ( sphereRadius > 0 ) then
 			render.DrawWireframeSphere( trace.HitPos, sphereRadius, 10, 10, Color( 0, 255, 255, 255 ), true )
